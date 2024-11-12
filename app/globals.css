@@ -80,3 +80,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .container-center {
+    @apply max-w-5xl mx-auto px-4;
+  }
+}
