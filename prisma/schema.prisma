@@ -1,0 +1,58 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  password      String
+  firstName     String?
+  lastName      String?
+  role          String    // creator, investor, both
+  skills        String?
+  experience    String?
+  interests     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  projects      Project[] @relation("ProjectMembers")
+  ownedProjects Project[] @relation("ProjectOwner")
+  investments   Investment[]
+}
+
+model Project {
+  id            String    @id @default(cuid())
+  name          String
+  type          String    // product, service
+  category      String
+  description   String
+  fundingGoal   Float
+  equity        Float
+  timeline      Int       // in months
+  status        String    // planning, in_progress, review, completed
+  progress      Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  owner         User      @relation("ProjectOwner", fields: [ownerId], references: [id])
+  ownerId       String
+  members       User[]    @relation("ProjectMembers")
+  investments   Investment[]
+}
+
+model Investment {
+  id        String   @id @default(cuid())
+  amount    Float
+  status    String   // pending, active, completed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  investor  User     @relation(fields: [userId], references: [id])
+  userId    String
+}
