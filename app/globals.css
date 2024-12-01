@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 160 5% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 160 5% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 5% 3.9%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 160 84% 39%;
+    --secondary-foreground: 355.7 100% 97.3%;
+    --muted: 160 4.8% 95.9%;
+    --muted-foreground: 160 3.8% 46.1%;
+    --accent: 160 4.8% 95.9%;
+    --accent-foreground: 160 5% 3.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 160 5.9% 90%;
+    --input: 160 5.9% 90%;
+    --ring: 142 76% 36%;
+    --radius: 1rem;
+  }
+ 
+  .dark {
+    --background: 160 5% 3.9%;
+    --foreground: 160 4.8% 95.9%;
+    --card: 160 5% 3.9%;
+    --card-foreground: 160 4.8% 95.9%;
+    --popover: 160 5% 3.9%;
+    --popover-foreground: 160 4.8% 95.9%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 160 84% 39%;
+    --secondary-foreground: 355.7 100% 97.3%;
+    --muted: 160 3.7% 15.9%;
+    --muted-foreground: 160 5% 64.9%;
+    --accent: 160 3.7% 15.9%;
+    --accent-foreground: 160 4.8% 95.9%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 160 4.8% 95.9%;
+    --border: 160 3.7% 15.9%;
+    --input: 160 3.7% 15.9%;
+    --ring: 142 76% 36%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image: radial-gradient(
+      circle at center,
+      hsl(var(--background)) 0%,
+      hsl(var(--muted)) 100%
+    );
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/80 dark:bg-black/80 backdrop-blur-md border border-white/20 dark:border-black/20 shadow-lg;
+  }
+  
+  .glass-navbar {
+    @apply bg-white/70 dark:bg-black/70 backdrop-blur-lg border-b border-white/20 dark:border-black/20;
+  }
+
+  .glass-input {
+    @apply bg-white/60 dark:bg-black/60 backdrop-blur-sm border-white/20 dark:border-black/20 focus:border-primary/50 focus:ring-primary/50;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 8s linear infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

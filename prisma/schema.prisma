@@ -1,0 +1,414 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User and Authentication
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?
+  full_name     String
+  avatar_url    String?
+  role          UserRole  @default(both)
+  bio           String?
+  linkedin_url  String?
+  twitter_url   String?
+  company       String?
+  position      String?
+  location      String?
+  skills        String[]
+  interests     String[]
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relations
+  profile       Profile?
+  settings      UserSettings?
+  projects      Project[]        @relation("ProjectFounder")
+  team_members  TeamMember[]
+  investments   Investment[]
+  connections   UserConnection[] @relation("UserConnections")
+  notifications Notification[]
+  progress      UserProgress[]
+  certificates  Certificate[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  investor
+  founder
+  both
+}
+
+model Profile {
+  id                    String   @id @default(cuid())
+  user_id              String   @unique
+  investment_min_amount Float?
+  investment_max_amount Float?
+  investment_sectors    String[]
+  investment_stages     String[]
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  user                 User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model UserSettings {
+  id                   String   @id @default(cuid())
+  user_id              String   @unique
+  email_notifications  Boolean  @default(true)
+  push_notifications   Boolean  @default(true)
+  two_factor_enabled   Boolean  @default(false)
+  theme               String   @default("system")
+  language            String   @default("en")
+  timezone            String   @default("UTC")
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// Projects
+model Project {
+  id              String          @id @default(cuid())
+  title           String
+  description     String
+  image_url       String?
+  category        ProjectCategory
+  visibility      Visibility      @default(public)
+  progress        Float           @default(0)
+  funding_goal    Float
+  current_funding Float           @default(0)
+  founder_id      String
+  skills          String[]
+  start_date      DateTime
+  end_date        DateTime?
+  status          ProjectStatus   @default(planning)
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+
+  // Relations
+  founder         User            @relation("ProjectFounder", fields: [founder_id], references: [id])
+  team_members    TeamMember[]
+  updates         ProjectUpdate[]
+  milestones      Milestone[]
+  documents       Document[]
+  investments     Investment[]
+
+  @@map("projects")
+}
+
+enum ProjectCategory {
+  technology
+  healthcare
+  finance
+  education
+  other
+}
+
+enum ProjectStatus {
+  planning
+  active
+  completed
+  on_hold
+  cancelled
+}
+
+enum Visibility {
+  public
+  private
+  unlisted
+}
+
+model TeamMember {
+  id           String         @id @default(cuid())
+  project_id   String
+  user_id      String
+  role         TeamMemberRole
+  permissions  String[]
+  joined_at    DateTime       @default(now())
+  project      Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [user_id], references: [id])
+
+  @@unique([project_id, user_id])
+  @@map("team_members")
+}
+
+enum TeamMemberRole {
+  owner
+  admin
+  member
+  viewer
+}
+
+// Investments
+model Investment {
+  id               String           @id @default(cuid())
+  project_id       String
+  investor_id      String
+  amount           Float
+  currency         String           @default("USD")
+  type             InvestmentType
+  status           InvestmentStatus @default(pending)
+  equity_percentage Float?
+  valuation        Float?
+  date             DateTime
+  notes            String?
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+
+  // Relations
+  project          Project          @relation(fields: [project_id], references: [id])
+  investor         User             @relation(fields: [investor_id], references: [id])
+  documents        Document[]
+  terms            InvestmentTerms?
+
+  @@map("investments")
+}
+
+enum InvestmentType {
+  seed
+  series_a
+  series_b
+  series_c
+  other
+}
+
+enum InvestmentStatus {
+  pending
+  completed
+  failed
+  cancelled
+}
+
+model InvestmentTerms {
+  id                    String     @id @default(cuid())
+  investment_id         String     @unique
+  board_seats          Int?
+  pro_rata_rights      Boolean    @default(false)
+  voting_rights        Boolean    @default(false)
+  liquidation_preference Float?
+  lock_up_period       Int?
+  additional_terms     String?
+  investment           Investment @relation(fields: [investment_id], references: [id], onDelete: Cascade)
+
+  @@map("investment_terms")
+}
+
+// Learning
+model Course {
+  id               String           @id @default(cuid())
+  title            String
+  description      String
+  difficulty       DifficultyLevel
+  duration_minutes Int
+  thumbnail_url    String?
+  prerequisites    String[]
+  certification    Boolean          @default(false)
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+
+  // Relations
+  modules          Module[]
+  progress         UserProgress[]
+  certificates     Certificate[]
+
+  @@map("courses")
+}
+
+enum DifficultyLevel {
+  beginner
+  intermediate
+  advanced
+}
+
+model Module {
+  id               String    @id @default(cuid())
+  course_id        String
+  title            String
+  description      String
+  order            Int
+  duration_minutes Int
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  // Relations
+  course           Course    @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  lessons          Lesson[]
+
+  @@map("modules")
+}
+
+// Supporting Models
+model Document {
+  id            String        @id @default(cuid())
+  name          String
+  url           String
+  type          DocumentType
+  version       Int          @default(1)
+  uploaded_by   String
+  project_id    String?
+  investment_id String?
+  created_at    DateTime     @default(now())
+
+  // Relations
+  project       Project?     @relation(fields: [project_id], references: [id])
+  investment    Investment?  @relation(fields: [investment_id], references: [id])
+
+  @@map("documents")
+}
+
+enum DocumentType {
+  pitch_deck
+  financial_model
+  legal
+  other
+}
+
+model ProjectUpdate {
+  id           String   @id @default(cuid())
+  project_id   String
+  title        String
+  content      String
+  attachments  String[]
+  published_at DateTime @default(now())
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  project      Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("project_updates")
+}
+
+model Milestone {
+  id              String          @id @default(cuid())
+  project_id      String
+  title           String
+  description     String
+  due_date        DateTime
+  status          MilestoneStatus @default(pending)
+  completion_date DateTime?
+  dependencies    String[]
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+
+  // Relations
+  project         Project         @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("milestones")
+}
+
+enum MilestoneStatus {
+  pending
+  completed
+  delayed
+}
+
+model UserConnection {
+  id                String           @id @default(cuid())
+  user_id           String
+  connected_user_id String
+  status            ConnectionStatus @default(pending)
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+
+  // Relations
+  user              User             @relation("UserConnections", fields: [user_id], references: [id])
+
+  @@unique([user_id, connected_user_id])
+  @@map("user_connections")
+}
+
+enum ConnectionStatus {
+  pending
+  accepted
+  rejected
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  user_id    String
+  type       NotificationType
+  title      String
+  message    String
+  read       Boolean          @default(false)
+  action_url String?
+  created_at DateTime         @default(now())
+
+  // Relations
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  connection
+  investment
+  project
+  message
+  system
+}
+
+model UserProgress {
+  id                 String   @id @default(cuid())
+  user_id            String
+  course_id          String
+  progress_percentage Float    @default(0)
+  completed          Boolean  @default(false)
+  last_accessed      DateTime @default(now())
+  notes              String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  // Relations
+  user               User     @relation(fields: [user_id], references: [id])
+  course             Course   @relation(fields: [course_id], references: [id])
+
+  @@unique([user_id, course_id])
+  @@map("user_progress")
+}
+
+model Certificate {
+  id           String    @id @default(cuid())
+  user_id      String
+  course_id    String
+  issued_date  DateTime  @default(now())
+  expiry_date  DateTime?
+  certificate_url String
+
+  // Relations
+  user         User      @relation(fields: [user_id], references: [id])
+  course       Course    @relation(fields: [course_id], references: [id])
+
+  @@map("certificates")
+}
+
+model Lesson {
+  id               String    @id @default(cuid())
+  module_id        String
+  title            String
+  description      String
+  content_url      String
+  order            Int
+  duration_minutes Int
+  resources        Json?     // Stored as array of resource objects
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  // Relations
+  module           Module    @relation(fields: [module_id], references: [id], onDelete: Cascade)
+
+  @@map("lessons")
+}
