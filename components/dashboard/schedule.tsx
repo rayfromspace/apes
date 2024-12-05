@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Code, Clock } from "lucide-react";
 import Link from "next/link";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
 
 const DAYS = [
   { name: "Sunday", short: "Sun", initial: "S", date: "16" },
@@ -24,6 +25,30 @@ const DAYS = [
   { name: "Thursday", short: "Thu", initial: "T", date: "20" },
   { name: "Friday", short: "Fri", initial: "F", date: "21" },
   { name: "Saturday", short: "Sat", initial: "S", date: "22" },
+];
+
+const DEMO_EVENTS = [
+  {
+    id: "1",
+    title: "Team Meeting",
+    time: "10:00 AM",
+    day: "Monday",
+    type: "meeting",
+  },
+  {
+    id: "2",
+    title: "Project Review",
+    time: "2:00 PM",
+    day: "Wednesday",
+    type: "review",
+  },
+  {
+    id: "3",
+    title: "Client Call",
+    time: "11:30 AM",
+    day: "Thursday",
+    type: "call",
+  },
 ];
 
 function CreateEventDialog() {
@@ -49,19 +74,16 @@ function CreateEventDialog() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
-          <Input id="description" placeholder="Add description" />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline">Cancel</Button>
-          <Button>Create Event</Button>
+          <Input id="description" placeholder="Add event description" />
         </div>
       </div>
     </DialogContent>
   );
 }
 
-export default function CalendarView() {
+export function Schedule() {
   const [view, setView] = useState<'week' | 'day'>('week');
+  const router = useRouter();
 
   return (
     <Card className="p-4 w-full">
@@ -125,6 +147,23 @@ export default function CalendarView() {
                 <div className="hidden sm:block md:hidden text-sm font-medium mb-1">{day.short}</div>
                 <div className="sm:hidden text-sm font-medium mb-1">{day.initial}</div>
                 <div className="text-2xl font-bold">{day.date}</div>
+                {DEMO_EVENTS.filter(event => event.day === day.name).map(event => (
+                  <div 
+                    key={event.id}
+                    className={cn(
+                      "mt-2 p-2 rounded text-xs",
+                      event.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
+                      event.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
+                      "bg-orange-100 dark:bg-orange-900/50"
+                    )}
+                  >
+                    <div className="font-medium">{event.title}</div>
+                    <div className="text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {event.time}
+                    </div>
+                  </div>
+                ))}
               </Card>
             ))}
           </div>

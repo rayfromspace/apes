@@ -9,6 +9,9 @@ import BoardMemberDashboard from '@/components/projects/dashboard/board-member-d
 import { ProjectPreview } from '@/components/projects/preview';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { useRouter } from 'next/navigation';
+import { DashboardStats } from '@/components/dashboard/stats';
+import { ActivityFeed } from '@/components/dashboard/activity-feed';
 
 interface ProjectDashboardProps {
   params: {
@@ -19,6 +22,7 @@ interface ProjectDashboardProps {
 export default function ProjectDashboardPage({ params }: ProjectDashboardProps) {
   const { user } = useAuth();
   const { project, isLoading, error } = useProject(params.id);
+  const router = useRouter();
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -39,64 +43,58 @@ export default function ProjectDashboardPage({ params }: ProjectDashboardProps) 
   // Check project access
   const access = checkProjectAccess(user, project.members || []);
 
-  // If no access, show public preview
+  // If no access, redirect to project preview
   if (!access.canView) {
-    const publicData = getPublicProjectData(project);
-    return <ProjectPreview project={publicData} />;
+    router.push(`/projects/${params.id}`);
+    return null;
   }
 
-  // Render appropriate dashboard based on role and permissions
+  // Render appropriate dashboard based on role
   switch (access.role) {
     case "founder":
-      return (
-        <div className="container mx-auto p-6">
-          <FounderDashboard 
-            project={project}
-            permissions={{
-              canManageFunds: access.canManageFunds,
-              canManageTeam: access.canManageTeam,
-              canVote: access.canVote
-            }}
-          />
-        </div>
-      );
-
+      return <FounderDashboard project={project} />;
     case "cofounder":
-      return (
-        <div className="container mx-auto p-6">
-          <CoFounderDashboard 
-            project={project}
-            permissions={{
-              canManageFunds: access.canManageFunds,
-              canManageTeam: access.canManageTeam,
-              canVote: access.canVote
-            }}
-          />
-        </div>
-      );
-
+      return <CoFounderDashboard project={project} />;
     case "board_member":
-      return (
-        <div className="container mx-auto p-6">
-          <BoardMemberDashboard 
-            project={project}
-            permissions={{
-              canManageFunds: access.canManageFunds,
-              canVote: access.canVote
-            }}
-          />
-        </div>
-      );
-
+      return <BoardMemberDashboard project={project} />;
     default:
+      // For team members and other roles
       return (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            You don't have permission to view this project's dashboard.
-          </AlertDescription>
-        </Alert>
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid gap-6">
+            {/* Project Overview */}
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-6 lg:col-span-2">
+                <h1 className="text-3xl font-bold">{project.title}</h1>
+                <p className="text-muted-foreground">{project.description}</p>
+                
+                {/* Project Stats */}
+                <DashboardStats showProjectStats projectId={project.id} />
+                
+                {/* Tasks and Deadlines */}
+                {access.canView && (
+                  <>
+                    <h2 className="text-2xl font-bold mt-8">Your Tasks</h2>
+                    {/* Add TaskList component here */}
+                  </>
+                )}
+              </div>
+              
+              <div className="space-y-6">
+                {/* Project Activity */}
+                <ActivityFeed projectId={project.id} />
+                
+                {/* Team Members */}
+                {access.canView && (
+                  <div className="bg-card rounded-lg p-4">
+                    <h3 className="font-semibold mb-4">Team Members</h3>
+                    {/* Add TeamMembers component here */}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       );
   }
 }

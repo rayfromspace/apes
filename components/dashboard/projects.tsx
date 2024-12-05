@@ -9,10 +9,10 @@ import { ProjectDialog } from "./project-creation/project-dialog";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useProjectStore } from "@/lib/stores/project-store";
-import { ProjectCard } from "@/components/projects/project-card";
 import { useAuth } from "@/lib/auth";
 import { Project, ProjectCategory, ProjectVisibility } from "@/types/project";
 import { UserRole } from "@/types/user";
+import { Badge } from "@/components/ui/badge";
 
 // Demo projects for development
 const DEMO_PROJECTS: Project[] = [
@@ -74,6 +74,39 @@ function CreateProjectCard({ onClick }: { onClick: () => void }) {
   );
 }
 
+function MiniProjectCard({ project }: { project: Project }) {
+  return (
+    <Card className="group relative hover:shadow-lg transition-shadow">
+      <CardContent className="p-4 space-y-3">
+        <div className="aspect-video rounded-lg overflow-hidden bg-muted relative">
+          {project.image_url && (
+            <img
+              src={project.image_url}
+              alt={project.title}
+              className="object-cover w-full h-full"
+            />
+          )}
+          <div className="absolute inset-0 bg-black/20" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-semibold truncate">{project.title}</h3>
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline" className="text-xs">{project.category}</Badge>
+            <Badge variant="secondary" className="text-xs">{project.visibility}</Badge>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Progress</span>
+              <span className="font-medium">{project.progress}%</span>
+            </div>
+            <Progress value={project.progress} className="h-1" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function DashboardProjects({ showMyProjectsOnly = false, showAnalytics = false }: DashboardProjectsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
@@ -83,12 +116,32 @@ export function DashboardProjects({ showMyProjectsOnly = false, showAnalytics = 
   // Use demo projects if no projects in store
   const allProjects = projects.length > 0 ? projects : DEMO_PROJECTS;
   
+  // Filter projects based on user's role and involvement
   const filteredProjects = showMyProjectsOnly
-    ? allProjects.filter(project => project.founder_id === user?.id)
+    ? allProjects.filter(project => {
+        const members = project.members || [];
+        return members.some(member => 
+          member.userId === user?.id && 
+          ['founder', 'cofounder', 'board_member', 'team_member'].includes(member.role || '')
+        ) || project.founder_id === user?.id;
+      })
     : allProjects;
 
   const handleProjectClick = (projectId: string) => {
-    router.push(`/dashboard/${projectId}`);
+    const project = allProjects.find(p => p.id === projectId);
+    if (!project) return;
+
+    // Check if user is a member of this project
+    const members = project.members || [];
+    const userMember = members.find(member => member.userId === user?.id);
+    
+    if (userMember || project.founder_id === user?.id) {
+      // If user is a member or founder, redirect to project dashboard
+      router.push(`/dashboard/${projectId}`);
+    } else {
+      // If user is not a member, show project preview
+      router.push(`/projects/${projectId}`);
+    }
   };
 
   return (
@@ -100,29 +153,27 @@ export function DashboardProjects({ showMyProjectsOnly = false, showAnalytics = 
             {showMyProjectsOnly ? "Your projects" : "All projects"} and their progress
           </p>
         </div>
-        {user?.role === "founder" && (
-          <ProjectDialog>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Project
-            </Button>
-          </ProjectDialog>
+        {isDialogOpen && (
+          <ProjectDialog
+            open={isDialogOpen}
+            onOpenChange={setIsDialogOpen}
+          />
         )}
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {(user?.role === 'founder' || user?.role === 'cofounder') && (
+          <CreateProjectCard onClick={() => setIsDialogOpen(true)} />
+        )}
         {filteredProjects.map((project) => (
-          <div key={project.id} onClick={() => handleProjectClick(project.id)} className="cursor-pointer">
-            <ProjectCard
-              project={project}
-              showAnalytics={showAnalytics}
-            />
+          <div
+            key={project.id}
+            onClick={() => handleProjectClick(project.id)}
+            className="cursor-pointer"
+          >
+            <MiniProjectCard project={project} />
           </div>
         ))}
-        {user?.role === "founder" && (
-          <ProjectDialog>
-            <CreateProjectCard onClick={() => setIsDialogOpen(true)} />
-          </ProjectDialog>
-        )}
       </div>
     </div>
   );

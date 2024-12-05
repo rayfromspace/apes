@@ -236,43 +236,98 @@ function TasksHoverContent() {
   );
 }
 
-export function DashboardStats() {
+interface DashboardStatsProps {
+  showProjectStats?: boolean;
+  projectId?: string;
+}
+
+export function DashboardStats({ showProjectStats = false, projectId }: DashboardStatsProps) {
   const router = useRouter();
 
+  // Demo data for project stats
+  const PROJECT_STATS = {
+    tasks: "12",
+    team: "8",
+    deadlines: "5",
+    completion: "65%"
+  };
+
+  // Demo data for general stats
+  const GENERAL_STATS = {
+    projects: "4",
+    connections: "28",
+    deadlines: "8",
+    tasks: "15"
+  };
+
+  const stats = showProjectStats ? PROJECT_STATS : GENERAL_STATS;
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <MetricCard
-        icon={<Lightbulb className="w-5 h-5 text-yellow-500" />}
-        label="Active Projects"
-        value="5"
-        className="bg-yellow-50 dark:bg-yellow-950/20"
-        hoverContent={<ProjectsHoverContent />}
-        onClick={() => router.push("/projects")}
-      />
-      <MetricCard
-        icon={<Users2 className="w-5 h-5 text-purple-500" />}
-        label="Connections"
-        value="24"
-        className="bg-purple-50 dark:bg-purple-950/20"
-        hoverContent={<ConnectionsHoverContent />}
-        onClick={() => router.push("/connections")}
-      />
-      <MetricCard
-        icon={<HelpCircle className="w-5 h-5 text-blue-500" />}
-        label="Upcoming Deadlines"
-        value="4"
-        className="bg-blue-50 dark:bg-blue-950/20"
-        hoverContent={<DeadlinesHoverContent />}
-        onClick={() => router.push("/projects/deadlines")}
-      />
-      <MetricCard
-        icon={<Code className="w-5 h-5 text-green-500" />}
-        label="Pending Tasks"
-        value="8"
-        className="bg-green-50 dark:bg-green-950/20"
-        hoverContent={<TasksHoverContent />}
-        onClick={() => router.push("/projects/tasks")}
-      />
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {showProjectStats ? (
+        // Project-specific stats
+        <>
+          <MetricCard
+            icon={<Code className="h-4 w-4" />}
+            label="Tasks"
+            value={stats.tasks}
+            hoverContent={<TasksHoverContent />}
+            onClick={() => router.push(`/dashboard/${projectId}/tasks`)}
+          />
+          <MetricCard
+            icon={<Users2 className="h-4 w-4" />}
+            label="Team Members"
+            value={stats.team}
+            hoverContent={<ConnectionsHoverContent />}
+            onClick={() => router.push(`/dashboard/${projectId}/team`)}
+          />
+          <MetricCard
+            icon={<Clock className="h-4 w-4" />}
+            label="Active Deadlines"
+            value={stats.deadlines}
+            hoverContent={<DeadlinesHoverContent />}
+            onClick={() => router.push(`/dashboard/${projectId}/deadlines`)}
+          />
+          <MetricCard
+            icon={<Star className="h-4 w-4" />}
+            label="Completion"
+            value={stats.completion}
+            hoverContent={<ProjectsHoverContent />}
+          />
+        </>
+      ) : (
+        // General dashboard stats
+        <>
+          <MetricCard
+            icon={<Lightbulb className="h-4 w-4" />}
+            label="Active Projects"
+            value={stats.projects}
+            hoverContent={<ProjectsHoverContent />}
+            onClick={() => router.push("/dashboard/projects")}
+          />
+          <MetricCard
+            icon={<Users2 className="h-4 w-4" />}
+            label="Connections"
+            value={stats.connections}
+            hoverContent={<ConnectionsHoverContent />}
+            onClick={() => router.push("/dashboard/network")}
+          />
+          <MetricCard
+            icon={<Clock className="h-4 w-4" />}
+            label="Pending Deadlines"
+            value={stats.deadlines}
+            hoverContent={<DeadlinesHoverContent />}
+            onClick={() => router.push("/dashboard/deadlines")}
+          />
+          <MetricCard
+            icon={<AlertCircle className="h-4 w-4" />}
+            label="Open Tasks"
+            value={stats.tasks}
+            hoverContent={<TasksHoverContent />}
+            onClick={() => router.push("/dashboard/tasks")}
+          />
+        </>
+      )}
     </div>
   );
 }
