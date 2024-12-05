@@ -1,77 +1,132 @@
 "use client";
 
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import * as React from "react";
+import { Project } from "@/types/project";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
-import Image from "next/image";
+import {
+  BarChart,
+  Calendar,
+  FileText,
+  MoreVertical,
+  Users,
+  Wallet,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
-
-interface Project {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
-  category: string;
-  progress: number;
-  fundingGoal: number;
-  currentFunding: number;
-  founder: string;
-  skills: string[];
-}
+import { useProjectStore } from "@/lib/stores/project-store";
+import { formatDate } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 interface ProjectCardProps {
   project: Project;
+  showAnalytics?: boolean;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, showAnalytics = false }: ProjectCardProps) {
   const router = useRouter();
+  const deleteProject = useProjectStore((state) => state.deleteProject);
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this project?")) {
+      deleteProject(project.id);
+    }
+  };
+
+  const handleView = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    router.push(`/dashboard/${project.id}`);
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    router.push(`/dashboard/${project.id}/edit`);
+  };
+
+  const fundingProgress = (project.current_funding / project.funding_goal) * 100;
 
   return (
-    <Card 
-      className="overflow-hidden flex flex-col cursor-pointer transition-all hover:shadow-lg"
-      onClick={() => router.push(`/projects/${project.id}`)}
-    >
-      <div className="relative h-48 w-full">
-        <Image
-          src={project.image}
-          alt={project.title}
-          fill
-          className="object-cover"
-        />
+    <Card className="group relative hover:shadow-lg transition-shadow">
+      <div className="absolute right-4 top-4 z-10">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={handleView}>
+              <FileText className="mr-2 h-4 w-4" />
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleEdit}>
+              <Calendar className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={handleDelete}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      <CardContent className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-2">
-          <Badge variant="secondary">{project.category}</Badge>
-          <span className="text-sm text-muted-foreground">
-            ${project.currentFunding.toLocaleString()} / ${project.fundingGoal.toLocaleString()}
-          </span>
+      <CardHeader>
+        <div className="space-y-1">
+          <CardTitle>{project.title}</CardTitle>
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline">{project.category}</Badge>
+            <Badge variant="secondary">{project.visibility}</Badge>
+          </div>
         </div>
-        <h3 className="text-xl font-semibold mb-2">{project.title}</h3>
-        <Progress value={project.progress} className="mb-4" />
-        <p className="text-sm text-muted-foreground mb-4">{project.description}</p>
-        <div className="flex flex-wrap gap-2">
-          {project.skills.map((skill) => (
-            <Badge key={skill} variant="outline">
-              {skill}
-            </Badge>
-          ))}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground line-clamp-2">
+          {project.description}
+        </p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span>Funding Progress</span>
+            <span className="font-medium">
+              ${project.current_funding.toLocaleString()} / ${project.funding_goal.toLocaleString()}
+            </span>
+          </div>
+          <Progress value={fundingProgress} className="h-2" />
         </div>
+        {showAnalytics && (
+          <div className="grid grid-cols-2 gap-4 pt-4">
+            <div className="flex items-center space-x-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Team: {project.skills?.length || 0}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <BarChart className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Progress: {project.progress}%</span>
+            </div>
+          </div>
+        )}
       </CardContent>
-      <CardFooter className="flex items-center justify-between p-6 border-t">
-        <div className="flex items-center space-x-2">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={`https://avatar.vercel.sh/${project.founder}`} />
-            <AvatarFallback>{project.founder[0]}</AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium">{project.founder}</span>
-        </div>
-        <Button variant="ghost" size="sm">
-          View Details <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </CardFooter>
     </Card>
   );
 }

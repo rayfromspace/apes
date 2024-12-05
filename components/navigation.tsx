@@ -5,17 +5,40 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Menu, Home, Search, TrendingUp, GraduationCap, Settings, X } from "lucide-react";
+import {
+  Menu,
+  Home,
+  Search,
+  TrendingUp,
+  GraduationCap,
+  Settings,
+  X,
+  Users,
+  Calendar,
+  MessageSquare,
+  LayoutDashboard,
+  Briefcase,
+  LogOut
+} from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const SIDEBAR_BREAKPOINT = 1024;
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
-  const { isAuthenticated } = useAuth();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -30,35 +53,44 @@ export default function Navigation() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Don't render navigation on landing page or auth pages
-  if (pathname === '/' || pathname === '/login' || pathname === '/register') {
-    return null;
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const publicRoutes = [
-    { name: "Home", href: "/" },
-    { name: "Projects", href: "/projects" },
-    { name: "Learning", href: "/learning" },
-    { name: "Community", href: "/community" },
+  const navigationItems = [
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Explore", href: "/explore", icon: Search },
+    { name: "Value Stake", href: "/value-stake", icon: TrendingUp },
+    { name: "Learning Pool", href: "/learning", icon: GraduationCap },
+    { name: "Calendar", href: "/calendar", icon: Calendar },
+    { name: "Messages", href: "/messages", icon: MessageSquare },
   ];
 
-  const protectedRoutes = [
-    { name: "Dashboard", href: "/dashboard", icon: Home },
-    { name: "Explore", href: "/explore", icon: Search },
-    { name: "Value Stake", href: "/investments", icon: TrendingUp },
-    { name: "Learning Pool", href: "/learning", icon: GraduationCap },
+  const bottomNavItems = [
+    { name: "Settings", href: "/settings", icon: Settings },
   ];
 
   return (
-    <div className={cn(
-      "flex h-full flex-col border-r bg-background transition-all duration-300",
-      isExpanded ? "w-60" : "w-[70px]"
-    )}>
-      <div className="flex h-16 items-center justify-center px-4">
+    <aside 
+      className={cn(
+        "h-screen sticky top-0 flex flex-col border-r bg-background transition-all duration-300",
+        isExpanded ? "w-64" : "w-[70px]",
+        isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      )}
+    >
+      {/* Mobile toggle */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "lg:hidden fixed right-4 top-4 z-40 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+          isOpen ? "right-[270px]" : "right-4"
+        )}
+      >
+        {isOpen ? (
+          <X className="h-6 w-6" />
+        ) : (
+          <Menu className="h-6 w-6" />
+        )}
+      </button>
+
+      {/* Header */}
+      <div className="flex h-16 items-center justify-between px-4 border-b">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-2 transition-opacity hover:opacity-80"
@@ -75,76 +107,95 @@ export default function Navigation() {
           </div>
           <span className={cn(
             "font-bold transition-all duration-300",
-            isExpanded ? "opacity-100" : "opacity-0 w-0"
+            !isExpanded && "opacity-0 w-0"
           )}>
             coLABapes
           </span>
         </button>
       </div>
 
-      <div className="flex-1 px-3 py-4 overflow-y-auto">
-        <nav className="space-y-2">
-          {protectedRoutes.map((route) => {
-            const Icon = route.icon;
-            return (
+      {/* Navigation Items */}
+      <nav className="flex-1 space-y-4 py-4">
+        <div className="px-3 py-2">
+          <div className="space-y-1">
+            {navigationItems.map((item) => (
               <Link
-                key={route.href}
-                href={route.href}
+                key={item.name}
+                href={item.href}
                 className={cn(
-                  "flex items-center rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent group relative",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
+                  pathname === item.href ? "bg-accent" : "transparent",
                   !isExpanded && "justify-center"
                 )}
               >
-                <Icon className={cn(
-                  "flex-shrink-0",
-                  isExpanded ? "h-4 w-4" : "h-5 w-5"
-                )} />
+                <item.icon className="h-4 w-4" />
                 <span className={cn(
-                  "ml-3 transition-all duration-300",
-                  isExpanded ? "opacity-100 w-auto" : "w-0 opacity-0"
+                  "transition-all duration-300",
+                  !isExpanded && "hidden"
                 )}>
-                  {route.name}
+                  {item.name}
                 </span>
               </Link>
-            );
-          })}
-        </nav>
-      </div>
+            ))}
+          </div>
+        </div>
+      </nav>
 
-      <div className="border-t p-4">
-        <div className={cn(
-          "flex items-center mb-4",
-          isExpanded ? "justify-center" : "justify-center px-3"
-        )}>
+      {/* Bottom Section */}
+      <div className="mt-auto border-t">
+        <div className="px-3 py-2">
+          {bottomNavItems.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
+                pathname === item.href ? "bg-accent" : "transparent",
+                !isExpanded && "justify-center"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              <span className={cn(
+                "transition-all duration-300",
+                !isExpanded && "hidden"
+              )}>
+                {item.name}
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        <div className="p-3 mt-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="w-full justify-start gap-2">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={user?.avatar} />
+                  <AvatarFallback>{user?.name?.[0]?.toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <span className={cn(
+                  "transition-all duration-300",
+                  !isExpanded && "hidden"
+                )}>
+                  {user?.name || 'User'}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => logout()}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="p-3">
           <ModeToggle />
         </div>
-        <div className={cn(
-          "flex items-center",
-          isExpanded ? "justify-between px-2" : "justify-center"
-        )}>
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/settings">
-              <Settings className={cn(
-                "flex-shrink-0",
-                isExpanded ? "h-4 w-4" : "h-5 w-5"
-              )} />
-            </Link>
-          </Button>
-          <Button variant="ghost" className="p-0">
-            <Link href="/profile">
-              <div className="relative h-8 w-8">
-                <Image
-                  src="/profile-picture.jpg"
-                  alt="Profile Picture"
-                  fill
-                  sizes="32px"
-                  className="rounded-full object-cover"
-                />
-              </div>
-            </Link>
-          </Button>
-        </div>
       </div>
-    </div>
+    </aside>
   );
 }

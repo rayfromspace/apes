@@ -5,6 +5,16 @@ import Link from "next/link";
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
+      {/* Auth Buttons */}
+      <div className="absolute top-4 right-4 flex gap-4">
+        <Button variant="outline" asChild>
+          <Link href="/auth/login">Sign In</Link>
+        </Button>
+        <Button asChild>
+          <Link href="/auth/register">Register</Link>
+        </Button>
+      </div>
+
       {/* Hero Section */}
       <section className="flex-1 flex flex-col items-center justify-center px-4 pt-20 pb-16 text-center">
         <div className="max-w-3xl mx-auto">
@@ -22,7 +32,7 @@ export default function Home() {
               </Link>
             </Button>
             <Button size="lg" asChild>
-              <Link href="/register">Register</Link>
+              <Link href="/auth/register">Register</Link>
             </Button>
           </div>
         </div>

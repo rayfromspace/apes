@@ -1,4 +1,4 @@
-export type UserRole = 'investor' | 'founder' | 'both';
+export type UserRole = 'investor' | 'founder' | 'cofounder' | 'board_member' | 'team_member';
 
 export interface User {
   id: string;

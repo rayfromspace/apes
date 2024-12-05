@@ -50,14 +50,9 @@ export const dashboardConfig = {
       ],
     },
     {
-      title: "Learning",
+      title: "Learning Pool",
       href: "/learning",
       icon: GraduationCap,
-      subItems: [
-        { title: "Courses", href: "/learning/courses" },
-        { title: "My Progress", href: "/learning/progress" },
-        { title: "Certificates", href: "/learning/certificates" },
-      ],
     },
   ],
   sidebarNav: [
@@ -81,11 +76,6 @@ export const dashboardConfig = {
       title: "Settings",
       href: "/settings",
       icon: Settings,
-      subItems: [
-        { title: "Profile", href: "/settings/profile" },
-        { title: "Account", href: "/settings/account" },
-        { title: "Preferences", href: "/settings/preferences" },
-      ],
     },
   ],
   userNav: [
@@ -134,8 +124,8 @@ export const dashboardConfig = {
       color: "green",
     },
     {
-      title: "Network Size",
-      metric: "networkSize",
+      title: "Community Members",
+      metric: "communityMembers",
       icon: Users,
       color: "purple",
     },

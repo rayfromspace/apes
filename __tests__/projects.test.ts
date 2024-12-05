@@ -126,6 +126,7 @@ describe('Projects', () => {
         data: { ...mockProject, title: 'Updated Title' } 
       });
       
+      import { ProjectDetails } from '@/components/projects/project-details';
       render(<ProjectDetails project={mockProject} onUpdate={mockUpdateProject} />);
       
       await userEvent.click(screen.getByRole('button', { name: /edit/i }));
@@ -141,3 +142,6 @@ describe('Projects', () => {
     });
   });
 });
+function renderHook(arg0: () => { projects: import("@/lib/hooks/use-projects").Project[]; loading: boolean; error: string | null; createProject: (projectData: FormData) => Promise<any>; updateProject: (id: string, updates: Partial<import("@/lib/hooks/use-projects").Project>, image?: File) => Promise<any>; deleteProject: (id: string) => Promise<boolean>; addProjectMember: (projectId: string, userId: string, role: "owner" | "member" | "viewer") => Promise<any>; refetch: () => Promise<void>; }): { result: any; } {
+  throw new Error('Function not implemented.');
+}

@@ -6,8 +6,10 @@ export function useAuth() {
   return {
     user: auth.user,
     isAuthenticated: auth.isAuthenticated,
+    isInitialized: auth.isInitialized,
     login: auth.login,
     register: auth.register,
     logout: auth.logout,
+    initialize: auth.initialize,
   };
 }

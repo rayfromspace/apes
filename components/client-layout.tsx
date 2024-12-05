@@ -1,43 +1,35 @@
 "use client";
 
-import { ThemeProvider } from '@/components/theme-provider';
-import { Toaster } from '@/components/ui/toaster';
 import Navigation from '@/components/navigation';
 import { useAuth } from '@/lib/auth';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function ClientLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitialized, initialize } = useAuth();
   const pathname = usePathname();
-  const isAuthPage = ['/login', '/register'].includes(pathname);
-  const isLandingPage = pathname === '/';
+
+  useEffect(() => {
+    if (!isInitialized) {
+      initialize().catch(console.error);
+    }
+  }, [isInitialized, initialize]);
+
+  const showNavigation = isAuthenticated && isInitialized && 
+    pathname !== '/' && !pathname.startsWith('/auth/');
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <div className="min-h-screen bg-background">
-            <div className="flex h-screen">
-              {isAuthenticated && !isAuthPage && !isLandingPage && <Navigation />}
-              <main className={`flex-1 overflow-y-auto ${
-                isAuthenticated && !isAuthPage && !isLandingPage ? 'pt-4 px-4' : ''
-              }`}>
-                {children}
-              </main>
-            </div>
-            <Toaster />
-          </div>
-        </ThemeProvider>
-      </body>
-    </html>
+    <div className="min-h-screen bg-background">
+      <div className="flex">
+        {showNavigation && <Navigation />}
+        <main className={`flex-1 h-screen overflow-y-auto ${showNavigation ? 'pl-4' : ''}`}>
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }

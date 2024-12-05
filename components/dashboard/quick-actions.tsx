@@ -17,23 +17,24 @@ import {
   Wallet,
   BarChart,
 } from "lucide-react";
+import { CreatePostDialog } from "./create-post-dialog";
 
 interface QuickAction {
   id: string;
   title: string;
   description: string;
   icon: React.ElementType;
-  href: string;
+  onClick?: () => void;
+  href?: string;
   color: string;
 }
 
 const quickActions: QuickAction[] = [
   {
-    id: "new-project",
-    title: "Create Project",
-    description: "Start a new project",
+    id: "new-post",
+    title: "Create Post",
+    description: "Share a new post",
     icon: PlusCircle,
-    href: "/projects/create",
     color: "text-green-500",
   },
   {
@@ -91,12 +92,12 @@ export function QuickActions() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {quickActions.map((action) => {
             const Icon = action.icon;
-            return (
+            const button = (
               <Button
                 key={action.id}
                 variant="outline"
                 className="h-auto flex-col items-start gap-2 p-4 hover:bg-muted/50"
-                onClick={() => router.push(action.href)}
+                onClick={action.href ? () => router.push(action.href) : undefined}
               >
                 <div className="flex w-full items-center gap-2">
                   <Icon className={cn("h-5 w-5", action.color)} />
@@ -107,6 +108,16 @@ export function QuickActions() {
                 </span>
               </Button>
             );
+
+            if (action.id === "new-post") {
+              return (
+                <CreatePostDialog key={action.id}>
+                  {button}
+                </CreatePostDialog>
+              );
+            }
+
+            return button;
           })}
         </div>
       </CardContent>

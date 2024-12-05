@@ -1,7 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import ClientLayout from '@/components/client-layout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -24,5 +23,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <ClientLayout>{children}</ClientLayout>;
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        {children}
+      </body>
+    </html>
+  );
 }

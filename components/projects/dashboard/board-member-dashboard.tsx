@@ -1,16 +1,26 @@
-export function BoardMemberDashboard() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Board Member View</h2>
-        <p className="text-muted-foreground">
-          Monitor project performance and strategic decisions
-        </p>
-      </div>
+"use client";
 
-      {/* Add board member-specific dashboard content here */}
+import { DashboardStats } from "@/components/dashboard/stats";
+import { DashboardProjects } from "@/components/dashboard/projects";
+import { ActivityFeed } from "@/components/dashboard/activity-feed";
+import { Notifications } from "@/components/dashboard/notifications";
+import { QuickActions } from "@/components/dashboard/quick-actions";
+
+export default function BoardMemberDashboard() {
+  return (
+    <div className="container mx-auto px-4 py-12">
       <div className="grid gap-6">
-        <div>Content coming soon...</div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <DashboardStats />
+            <DashboardProjects showMyProjectsOnly={false} showAnalytics={true} />
+          </div>
+          <div className="space-y-6">
+            <Notifications />
+            <ActivityFeed />
+          </div>
+        </div>
+        <QuickActions />
       </div>
     </div>
   );

@@ -24,6 +24,9 @@
     --input: 160 5.9% 90%;
     --ring: 142 76% 36%;
     --radius: 1rem;
+    --glow-color: 160 5% 3.9%;
+    --glow-strength: 0.05;
+    --glow-spread: 8px;
   }
  
   .dark {
@@ -46,6 +49,9 @@
     --border: 160 3.7% 15.9%;
     --input: 160 3.7% 15.9%;
     --ring: 142 76% 36%;
+    --glow-color: 160 4.8% 95.9%;
+    --glow-strength: 0.08;
+    --glow-spread: 12px;
   }
 }
 
@@ -64,6 +70,51 @@
 }
 
 @layer components {
+  /* Base glow effect for all forum elements */
+  .forum-element {
+    @apply relative transition-all duration-200;
+    box-shadow: 0 0 var(--glow-spread) hsla(var(--glow-color) / var(--glow-strength));
+  }
+
+  /* Enhanced glow effect for interactive elements */
+  .forum-element-interactive {
+    @apply forum-element hover:shadow-lg;
+    transition: box-shadow 0.2s ease-in-out;
+  }
+  
+  .forum-element-interactive:hover {
+    box-shadow: 0 0 calc(var(--glow-spread) * 1.5) hsla(var(--glow-color) / calc(var(--glow-strength) * 1.5));
+  }
+
+  /* Card specific glow */
+  .card.forum-element {
+    @apply bg-card;
+    box-shadow: 
+      0 0 var(--glow-spread) hsla(var(--glow-color) / calc(var(--glow-strength) * 0.7)),
+      0 1px 3px 0 rgb(0 0 0 / 0.1);
+  }
+
+  /* Input field glow */
+  .input.forum-element {
+    @apply bg-background;
+    box-shadow: 
+      0 0 0 1px hsla(var(--border)),
+      0 0 var(--glow-spread) hsla(var(--glow-color) / calc(var(--glow-strength) * 0.5));
+  }
+
+  /* Button glow */
+  .button.forum-element {
+    @apply relative;
+    box-shadow: 
+      0 0 var(--glow-spread) hsla(var(--primary) / calc(var(--glow-strength) * 1.2));
+  }
+
+  /* Section header glow */
+  .section-header.forum-element {
+    @apply relative;
+    box-shadow: 0 4px var(--glow-spread) hsla(var(--glow-color) / calc(var(--glow-strength) * 0.3));
+  }
+
   .glass-card {
     @apply bg-white/80 dark:bg-black/80 backdrop-blur-md border border-white/20 dark:border-black/20 shadow-lg;
   }
