@@ -12,35 +12,60 @@ datasource db {
 
 // User and Authentication
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String?
-  full_name     String
-  avatar_url    String?
-  role          UserRole  @default(both)
-  bio           String?
-  linkedin_url  String?
-  twitter_url   String?
-  company       String?
-  position      String?
-  location      String?
-  skills        String[]
-  interests     String[]
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  password              String?
+  full_name             String
+  avatar_url            String?
+  role                  UserRole  @default(both)
+  bio                   String?
+  linkedin_url          String?
+  twitter_url           String?
+  company               String?
+  position              String?
+  location              String?
+  skills                String[]
+  interests             String[]
+  email_verified        DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  // Auth related
+  reset_token          String?   @unique
+  reset_token_expires  DateTime?
+  verification_token   String?   @unique
+  
+  // Following system
+  following            Follows[] @relation("following")
+  followers            Follows[] @relation("followers")
+  
+  // Sessions
+  sessions             Session[]
 
   // Relations
-  profile       Profile?
-  settings      UserSettings?
-  projects      Project[]        @relation("ProjectFounder")
-  team_members  TeamMember[]
-  investments   Investment[]
-  connections   UserConnection[] @relation("UserConnections")
-  notifications Notification[]
-  progress      UserProgress[]
-  certificates  Certificate[]
+  profile              Profile?
+  settings             UserSettings?
+  projects             Project[]        @relation("ProjectFounder")
+  team_members         TeamMember[]
+  investments          Investment[]
+  connections          UserConnection[] @relation("UserConnections")
+  notifications        Notification[]
+  progress             UserProgress[]
+  certificates         Certificate[]
 
   @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  user_id      String
+  expires      DateTime
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@index([user_id])
+  @@map("sessions")
 }
 
 enum UserRole {
@@ -79,77 +104,94 @@ model UserSettings {
   @@map("user_settings")
 }
 
-// Projects
+model Follows {
+  follower    User     @relation("following", fields: [followerId], references: [id])
+  followerId  String
+  following   User     @relation("followers", fields: [followingId], references: [id])
+  followingId String
+  created_at  DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@map("follows")
+}
+
+// Projects and Collaboration
 model Project {
   id              String          @id @default(cuid())
-  title           String
-  description     String
-  image_url       String?
-  category        ProjectCategory
-  visibility      Visibility      @default(public)
-  progress        Float           @default(0)
-  funding_goal    Float
-  current_funding Float           @default(0)
+  name            String
+  description     String?
+  pitch_deck_url  String?
+  website_url     String?
+  status          ProjectStatus   @default(draft)
+  visibility      Visibility      @default(private)
+  funding_goal    Float?
+  raised_amount   Float           @default(0)
+  category        String?
+  tags            String[]
+  founder         User            @relation("ProjectFounder", fields: [founder_id], references: [id], onDelete: Cascade)
   founder_id      String
-  skills          String[]
-  start_date      DateTime
-  end_date        DateTime?
-  status          ProjectStatus   @default(planning)
+  team_members    TeamMember[]
+  investments     Investment[]
+  documents       Document[]
+  updates         ProjectUpdate[]
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
-
-  // Relations
-  founder         User            @relation("ProjectFounder", fields: [founder_id], references: [id])
-  team_members    TeamMember[]
-  updates         ProjectUpdate[]
-  milestones      Milestone[]
-  documents       Document[]
-  investments     Investment[]
 
   @@map("projects")
 }
 
-enum ProjectCategory {
-  technology
-  healthcare
-  finance
-  education
-  other
+model Document {
+  id          String    @id @default(cuid())
+  name        String
+  url         String
+  type        String
+  size        Int
+  project     Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project_id  String
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@map("documents")
+}
+
+model ProjectUpdate {
+  id          String    @id @default(cuid())
+  title       String
+  content     String
+  project     Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project_id  String
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@map("project_updates")
+}
+
+model TeamMember {
+  id          String    @id @default(cuid())
+  role        String
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id     String
+  project     Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project_id  String
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@unique([user_id, project_id])
+  @@map("team_members")
 }
 
 enum ProjectStatus {
-  planning
+  draft
   active
+  funding
   completed
-  on_hold
   cancelled
 }
 
 enum Visibility {
-  public
   private
+  public
   unlisted
-}
-
-model TeamMember {
-  id           String         @id @default(cuid())
-  project_id   String
-  user_id      String
-  role         TeamMemberRole
-  permissions  String[]
-  joined_at    DateTime       @default(now())
-  project      Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [user_id], references: [id])
-
-  @@unique([project_id, user_id])
-  @@map("team_members")
-}
-
-enum TeamMemberRole {
-  owner
-  admin
-  member
-  viewer
 }
 
 // Investments
@@ -251,47 +293,6 @@ model Module {
 }
 
 // Supporting Models
-model Document {
-  id            String        @id @default(cuid())
-  name          String
-  url           String
-  type          DocumentType
-  version       Int          @default(1)
-  uploaded_by   String
-  project_id    String?
-  investment_id String?
-  created_at    DateTime     @default(now())
-
-  // Relations
-  project       Project?     @relation(fields: [project_id], references: [id])
-  investment    Investment?  @relation(fields: [investment_id], references: [id])
-
-  @@map("documents")
-}
-
-enum DocumentType {
-  pitch_deck
-  financial_model
-  legal
-  other
-}
-
-model ProjectUpdate {
-  id           String   @id @default(cuid())
-  project_id   String
-  title        String
-  content      String
-  attachments  String[]
-  published_at DateTime @default(now())
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-
-  // Relations
-  project      Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
-
-  @@map("project_updates")
-}
-
 model Milestone {
   id              String          @id @default(cuid())
   project_id      String

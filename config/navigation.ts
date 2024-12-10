@@ -25,6 +25,11 @@ export const navigationConfig = {
       protected: true,
     },
     {
+      title: "Messages",
+      href: "/messages",
+      protected: true,
+    },
+    {
       title: "Learning",
       href: "/learning",
       public: true,

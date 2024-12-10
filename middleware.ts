@@ -1,57 +1,54 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
-const PUBLIC_PATHS = ['/', '/auth/login', '/auth/register'];
-const AUTH_PATHS = ['/auth/login', '/auth/register'];
+export default withAuth(
+  function middleware(req) {
+    const { pathname } = req.nextUrl;
+    const token = req.nextauth.token;
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  
-  // Skip middleware for static files and API routes
-  if (pathname.startsWith('/_next') || 
-      pathname.startsWith('/api') ||
-      pathname.includes('.')) {
+    // Redirect authenticated users away from auth pages
+    if (token && (pathname.startsWith("/auth/"))) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    // Role-based access control
+    if (pathname.startsWith("/dashboard/founder") && token?.role !== "founder") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    if (pathname.startsWith("/dashboard/investor") && token?.role !== "investor") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
     return NextResponse.next();
+  },
+  {
+    callbacks: {
+      authorized: ({ token, req }) => {
+        const { pathname } = req.nextUrl;
+        
+        // Allow public routes
+        if (pathname.startsWith("/auth/") || pathname === "/") {
+          return true;
+        }
+
+        // Require authentication for all other routes
+        return !!token;
+      },
+    },
   }
-
-  // Create a response object that we can modify
-  const res = NextResponse.next();
-
-  try {
-    // Initialize the Supabase client
-    const supabase = createMiddlewareClient({ req: request, res });
-    
-    // Check active session
-    const { data: { session }, error } = await supabase.auth.getSession();
-
-    if (error) {
-      console.error('Middleware auth error:', error);
-    }
-
-    const isAuthed = !!session;
-
-    // If user is authenticated and trying to access auth pages, redirect to dashboard
-    if (isAuthed && AUTH_PATHS.includes(pathname)) {
-      console.log('Authenticated user trying to access auth page, redirecting to dashboard');
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    // If user is not authenticated and trying to access protected pages, redirect to login
-    if (!isAuthed && !PUBLIC_PATHS.includes(pathname)) {
-      console.log('Unauthenticated user trying to access protected page, redirecting to login');
-      const url = new URL('/auth/login', request.url);
-      url.searchParams.set('from', pathname);
-      return NextResponse.redirect(url);
-    }
-
-    return res;
-  } catch (error) {
-    console.error('Middleware error:', error);
-    return res;
-  }
-}
+);
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|public/).*)",
+  ],
 };

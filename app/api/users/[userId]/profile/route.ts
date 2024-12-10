@@ -4,7 +4,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { userId: string } }
 ) {
   const supabase = createRouteHandlerClient({ cookies });
 
@@ -21,22 +21,19 @@ export async function GET(
         role
       )
     `)
-    .eq('id', params.id)
+    .eq('id', params.userId)
     .single();
 
   if (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ user });
+  return NextResponse.json({ data: user });
 }
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { userId: string } }
 ) {
   const supabase = createRouteHandlerClient({ cookies });
   const formData = await request.formData();
@@ -47,7 +44,7 @@ export async function PATCH(
   if (avatar) {
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(`${params.id}/${Date.now()}-${avatar.name}`, avatar);
+      .upload(`${params.userId}/${Date.now()}-${avatar.name}`, avatar);
 
     if (uploadError) {
       return NextResponse.json(
@@ -66,7 +63,7 @@ export async function PATCH(
   const { data: user, error } = await supabase
     .from('users')
     .update(updateData)
-    .eq('id', params.id)
+    .eq('id', params.userId)
     .select()
     .single();
 
@@ -77,12 +74,12 @@ export async function PATCH(
     );
   }
 
-  return NextResponse.json({ user });
+  return NextResponse.json({ data: user });
 }
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { userId: string } }
 ) {
   const supabase = createRouteHandlerClient({ cookies });
 
@@ -90,13 +87,13 @@ export async function DELETE(
   await supabase
     .from('project_members')
     .delete()
-    .eq('user_id', params.id);
+    .eq('user_id', params.userId);
 
   // Delete the user
   const { error } = await supabase
     .from('users')
     .delete()
-    .eq('id', params.id);
+    .eq('id', params.userId);
 
   if (error) {
     return NextResponse.json(

@@ -4,7 +4,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { projectId: string } }
 ) {
   const supabase = createRouteHandlerClient({ cookies });
 
@@ -23,7 +23,7 @@ export async function GET(
         )
       )
     `)
-    .eq('id', params.id)
+    .eq('id', params.projectId)
     .single();
 
   if (error) {
@@ -38,7 +38,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { projectId: string } }
 ) {
   const supabase = createRouteHandlerClient({ cookies });
   const { title, description, status } = await request.json();
@@ -46,7 +46,7 @@ export async function PATCH(
   const { data: project, error } = await supabase
     .from('projects')
     .update({ title, description, status })
-    .eq('id', params.id)
+    .eq('id', params.projectId)
     .select()
     .single();
 
@@ -62,14 +62,14 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { projectId: string } }
 ) {
   const supabase = createRouteHandlerClient({ cookies });
 
   const { error } = await supabase
     .from('projects')
     .delete()
-    .eq('id', params.id);
+    .eq('id', params.projectId);
 
   if (error) {
     return NextResponse.json(

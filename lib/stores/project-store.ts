@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Project } from "@/types/project";
+import { TEST_PROJECTS } from "@/data/test-projects";
 
 interface ProjectState {
   projects: Project[];
@@ -14,7 +15,7 @@ interface ProjectState {
 export const useProjectStore = create<ProjectState>()(
   persist(
     (set) => ({
-      projects: [],
+      projects: TEST_PROJECTS, // Initialize with test projects
       selectedProject: null,
       setSelectedProject: (project) => set({ selectedProject: project }),
       addProject: (project) =>
@@ -36,6 +37,10 @@ export const useProjectStore = create<ProjectState>()(
     }),
     {
       name: "project-store",
+      partialize: (state) => ({
+        projects: state.projects,
+        selectedProject: state.selectedProject,
+      }),
     }
   )
 );

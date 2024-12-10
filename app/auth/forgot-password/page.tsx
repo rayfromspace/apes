@@ -16,40 +16,57 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
 });
 
+type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>;
+
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof forgotPasswordSchema>>({
+  const form = useForm<ForgotPasswordForm>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: {
       email: "",
     },
   });
 
-  async function onSubmit(values: z.infer<typeof forgotPasswordSchema>) {
+  async function onSubmit(values: ForgotPasswordForm) {
     try {
       setIsLoading(true);
-      // TODO: Implement password reset request
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulated API call
-      
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to send reset email");
+      }
+
+      setEmailSent(true);
       toast({
         title: "Reset link sent",
         description: "If an account exists with this email, you will receive a password reset link.",
       });
-      
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to send reset email",
       });
     } finally {
       setIsLoading(false);
@@ -57,64 +74,71 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="container relative flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
-      <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
-        <div className="absolute inset-0 bg-zinc-900" />
-        <div className="relative z-20 flex items-center text-lg font-medium">
-          <Image
-            src="/logo.svg"
-            alt="Logo"
-            width={40}
-            height={40}
-            className="mr-2"
-          />
-          Your App Name
-        </div>
-      </div>
-      <div className="lg:p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-          <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Forgot your password?
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Enter your email address and we'll send you a link to reset your password.
-            </p>
-          </div>
+    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+        <Card>
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold tracking-tight">
+              Reset password
+            </CardTitle>
+            <CardDescription>
+              Enter your email address and we'll send you a link to reset your password
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {emailSent ? (
+              <div className="text-center space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Check your email for a link to reset your password. If it doesn't appear within a few minutes, check your spam folder.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setEmailSent(false)}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="name@example.com"
+                            {...field}
+                            disabled={isLoading}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="name@example.com"
-                        type="email"
-                        disabled={isLoading}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button disabled={isLoading} type="submit" className="w-full">
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send reset link
-              </Button>
-            </form>
-          </Form>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send reset link
+                  </Button>
+                </form>
+              </Form>
+            )}
 
-          <div className="text-center text-sm">
-            <Link href="/login" className="text-primary hover:underline">
-              Back to login
-            </Link>
-          </div>
-        </div>
+            <div className="mt-4 text-center text-sm">
+              <Link
+                href="/auth/login"
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Back to login
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -21,6 +22,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { GoalsDialog } from "./goals-dialog";
+import { ConnectionsDialog } from "./connections-dialog";
+import { DeadlinesDialog } from "./deadlines-dialog";
+import { TasksDialog } from "./tasks-dialog";
 
 // Demo data for hover states
 const ACTIVE_PROJECTS = [
@@ -82,6 +87,23 @@ const PENDING_TASKS = [
     project: "AI Content Creator",
     priority: "medium",
     dueDate: "Tomorrow",
+  },
+];
+
+const GOALS = [
+  {
+    id: "1",
+    title: "Launch MVP",
+    status: "In Progress",
+    deadline: "2024-03-01",
+    progress: 75,
+  },
+  {
+    id: "2",
+    title: "Secure Seed Funding",
+    status: "Not Started",
+    deadline: "2024-06-30",
+    progress: 0,
   },
 ];
 
@@ -236,98 +258,95 @@ function TasksHoverContent() {
   );
 }
 
+function GoalsHoverContent() {
+  return (
+    <div className="space-y-3 p-4">
+      <h4 className="font-semibold text-sm">Your Current Goals</h4>
+      {GOALS.map((goal) => (
+        <div key={goal.id} className="flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="font-medium text-sm">{goal.title}</p>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                Due: {goal.deadline}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {goal.progress}% Complete
+              </span>
+            </div>
+          </div>
+          <Badge variant="outline">{goal.status}</Badge>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface DashboardStatsProps {
   showProjectStats?: boolean;
   projectId?: string;
 }
 
 export function DashboardStats({ showProjectStats = false, projectId }: DashboardStatsProps) {
+  const [isGoalsDialogOpen, setIsGoalsDialogOpen] = useState(false);
+  const [isConnectionsDialogOpen, setIsConnectionsDialogOpen] = useState(false);
+  const [isDeadlinesDialogOpen, setIsDeadlinesDialogOpen] = useState(false);
+  const [isTasksDialogOpen, setIsTasksDialogOpen] = useState(false);
   const router = useRouter();
 
-  // Demo data for project stats
-  const PROJECT_STATS = {
-    tasks: "12",
-    team: "8",
-    deadlines: "5",
-    completion: "65%"
-  };
-
-  // Demo data for general stats
-  const GENERAL_STATS = {
-    projects: "4",
-    connections: "28",
-    deadlines: "8",
-    tasks: "15"
-  };
-
-  const stats = showProjectStats ? PROJECT_STATS : GENERAL_STATS;
-
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {showProjectStats ? (
-        // Project-specific stats
-        <>
-          <MetricCard
-            icon={<Code className="h-4 w-4" />}
-            label="Tasks"
-            value={stats.tasks}
-            hoverContent={<TasksHoverContent />}
-            onClick={() => router.push(`/dashboard/${projectId}/tasks`)}
-          />
-          <MetricCard
-            icon={<Users2 className="h-4 w-4" />}
-            label="Team Members"
-            value={stats.team}
-            hoverContent={<ConnectionsHoverContent />}
-            onClick={() => router.push(`/dashboard/${projectId}/team`)}
-          />
-          <MetricCard
-            icon={<Clock className="h-4 w-4" />}
-            label="Active Deadlines"
-            value={stats.deadlines}
-            hoverContent={<DeadlinesHoverContent />}
-            onClick={() => router.push(`/dashboard/${projectId}/deadlines`)}
-          />
-          <MetricCard
-            icon={<Star className="h-4 w-4" />}
-            label="Completion"
-            value={stats.completion}
-            hoverContent={<ProjectsHoverContent />}
-          />
-        </>
-      ) : (
-        // General dashboard stats
-        <>
-          <MetricCard
-            icon={<Lightbulb className="h-4 w-4" />}
-            label="Active Projects"
-            value={stats.projects}
-            hoverContent={<ProjectsHoverContent />}
-            onClick={() => router.push("/dashboard/projects")}
-          />
-          <MetricCard
-            icon={<Users2 className="h-4 w-4" />}
-            label="Connections"
-            value={stats.connections}
-            hoverContent={<ConnectionsHoverContent />}
-            onClick={() => router.push("/dashboard/network")}
-          />
-          <MetricCard
-            icon={<Clock className="h-4 w-4" />}
-            label="Pending Deadlines"
-            value={stats.deadlines}
-            hoverContent={<DeadlinesHoverContent />}
-            onClick={() => router.push("/dashboard/deadlines")}
-          />
-          <MetricCard
-            icon={<AlertCircle className="h-4 w-4" />}
-            label="Open Tasks"
-            value={stats.tasks}
-            hoverContent={<TasksHoverContent />}
-            onClick={() => router.push("/dashboard/tasks")}
-          />
-        </>
-      )}
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          icon={<Star className="h-4 w-4" />}
+          label="Goals"
+          value={`${GOALS.length} Active`}
+          className="bg-blue-50 dark:bg-blue-950"
+          hoverContent={<GoalsHoverContent />}
+          onClick={() => setIsGoalsDialogOpen(true)}
+        />
+        <MetricCard
+          icon={<Users2 className="h-4 w-4" />}
+          label="Connections"
+          value="12"
+          className="bg-green-50 dark:bg-green-950"
+          hoverContent={<ConnectionsHoverContent />}
+          onClick={() => setIsConnectionsDialogOpen(true)}
+        />
+        <MetricCard
+          icon={<Clock className="h-4 w-4" />}
+          label="Deadlines"
+          value="4"
+          className="bg-orange-50 dark:bg-orange-950"
+          hoverContent={<DeadlinesHoverContent />}
+          onClick={() => setIsDeadlinesDialogOpen(true)}
+        />
+        <MetricCard
+          icon={<AlertCircle className="h-4 w-4" />}
+          label="Tasks"
+          value="6"
+          className="bg-purple-50 dark:bg-purple-950"
+          hoverContent={<TasksHoverContent />}
+          onClick={() => setIsTasksDialogOpen(true)}
+        />
+      </div>
+
+      <GoalsDialog 
+        open={isGoalsDialogOpen} 
+        onOpenChange={setIsGoalsDialogOpen}
+      />
+      <ConnectionsDialog 
+        open={isConnectionsDialogOpen} 
+        onOpenChange={setIsConnectionsDialogOpen}
+      />
+      <DeadlinesDialog 
+        open={isDeadlinesDialogOpen} 
+        onOpenChange={setIsDeadlinesDialogOpen}
+      />
+      <TasksDialog 
+        open={isTasksDialogOpen} 
+        onOpenChange={setIsTasksDialogOpen}
+      />
     </div>
   );
 }

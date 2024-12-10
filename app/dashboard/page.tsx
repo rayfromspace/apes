@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth";
-import { UserRole } from "@/types/user";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { DashboardProjects } from "@/components/dashboard/projects";
 import { DashboardStats } from "@/components/dashboard/stats";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
@@ -11,49 +11,42 @@ import { Schedule } from "@/components/dashboard/schedule";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const userRole = user?.role || 'team_member';
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <DashboardLayout>
       <div className="grid gap-6">
-        {/* User Stats Section */}
+        {/* Schedule Section - Full Width */}
+        <div className="w-full">
+          <Schedule />
+        </div>
+
+        {/* Content Section */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Main Content - First Two Columns */}
           <div className="space-y-6 lg:col-span-2">
-            <DashboardStats />
+            {/* Stats Section */}
+            <DashboardStats showProjectStats={false} />
             
             {/* Active Projects Section */}
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold tracking-tight">Active Projects</h2>
-              <DashboardProjects showMyProjectsOnly={true} />
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">Active Projects</h2>
+                <p className="text-muted-foreground">Your ongoing projects and collaborations</p>
+              </div>
+              <DashboardProjects />
             </div>
+
+            {/* Quick Actions */}
+            <QuickActions />
           </div>
           
+          {/* Sidebar - Third Column */}
           <div className="space-y-6">
             <Notifications />
             <ActivityFeed />
           </div>
         </div>
-
-        {/* Schedule Section */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <Schedule />
-          </div>
-          
-          {/* Quick Actions */}
-          <div>
-            <QuickActions />
-          </div>
-        </div>
-
-        {/* All Projects Section (for specific roles) */}
-        {['founder', 'cofounder', 'board_member'].includes(userRole) && (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold tracking-tight">All Projects</h2>
-            <DashboardProjects showMyProjectsOnly={false} showAnalytics={true} />
-          </div>
-        )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
