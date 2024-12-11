@@ -8,6 +8,7 @@ import { ProjectApi, CreateProjectData } from '@/lib/api/project-api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useRouter } from 'next/navigation';
 import {
   Form,
   FormControl,
@@ -56,6 +57,7 @@ interface ProjectFormProps {
 export function ProjectForm({ onSuccess }: ProjectFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -81,8 +83,13 @@ export function ProjectForm({ onSuccess }: ProjectFormProps) {
         description: 'Your project has been created successfully.',
       });
 
-      if (project && onSuccess) {
-        onSuccess(project.id);
+      if (project) {
+        if (onSuccess) {
+          onSuccess(project.id);
+        } else {
+          // Redirect to the project admin dashboard
+          router.push(`/dashboard/${project.id}`);
+        }
       }
     } catch (error) {
       toast({

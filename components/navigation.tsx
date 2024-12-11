@@ -56,7 +56,7 @@ export default function Navigation() {
   const navigationItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Explore", href: "/explore", icon: Search },
-    { name: "Value Stake", href: "/value-stake", icon: TrendingUp },
+    { name: "Value Stake", href: "/dashboard/value-stake", icon: TrendingUp },
     { name: "Learning Pool", href: "/learning", icon: GraduationCap },
     { name: "Calendar", href: "/calendar", icon: Calendar },
     { name: "Messages", href: "/messages", icon: MessageSquare },
