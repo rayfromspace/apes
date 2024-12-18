@@ -3,6 +3,9 @@
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { TestAuthProvider } from "@/providers/test-auth-provider";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 export function RootLayoutClient({
   children,
@@ -10,16 +13,18 @@ export function RootLayoutClient({
   children: React.ReactNode;
 }) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <TestAuthProvider>
-        {children}
-        <Toaster />
-      </TestAuthProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <TestAuthProvider>
+          {children}
+          <Toaster />
+        </TestAuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }

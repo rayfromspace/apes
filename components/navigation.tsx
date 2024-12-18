@@ -18,7 +18,8 @@ import {
   MessageSquare,
   LayoutDashboard,
   Briefcase,
-  LogOut
+  LogOut,
+  User
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -194,6 +195,10 @@ export default function Navigation() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push(`/profile`)}>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => logout()}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>

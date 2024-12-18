@@ -134,6 +134,7 @@ model Project {
   investments     Investment[]
   documents       Document[]
   updates         ProjectUpdate[]
+  milestones      Milestone[]
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
 
@@ -148,6 +149,8 @@ model Document {
   size        Int
   project     Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
   project_id  String
+  investment    Investment?  @relation(fields: [investment_id], references: [id])
+  investment_id String?
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
 
