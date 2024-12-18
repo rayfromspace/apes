@@ -20,12 +20,12 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { GoalsDialog } from "./goals-dialog";
 import { ConnectionsDialog } from "./connections-dialog";
 import { DeadlinesDialog } from "./deadlines-dialog";
 import { TasksDialog } from "./tasks-dialog";
+import { UserAvatar } from "@/components/shared/user-avatar";
 
 // Demo data for hover states
 const ACTIVE_PROJECTS = [
@@ -47,12 +47,14 @@ const ACTIVE_PROJECTS = [
 
 const RECENT_CONNECTIONS = [
   {
+    id: "1",
     name: "Sarah Chen",
     avatar: "https://avatar.vercel.sh/sarah",
     role: "AI Engineer",
     timestamp: "2 hours ago",
   },
   {
+    id: "2",
     name: "Alex Thompson",
     avatar: "https://avatar.vercel.sh/alex",
     role: "Product Designer",
@@ -186,11 +188,17 @@ function ConnectionsHoverContent() {
     <div className="space-y-3 p-4">
       <h4 className="font-semibold text-sm">Recent Connections</h4>
       {RECENT_CONNECTIONS.map((connection, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src={connection.avatar} />
-            <AvatarFallback>{connection.name[0]}</AvatarFallback>
-          </Avatar>
+        <div key={connection.id} className="flex items-center gap-3">
+          <UserAvatar 
+            user={{
+              id: connection.id,
+              name: connection.name,
+              avatar: connection.avatar,
+              role: connection.role
+            }}
+            showHoverCard={true}
+            size="md"
+          />
           <div className="flex-1">
             <p className="text-sm font-medium">{connection.name}</p>
             <p className="text-xs text-muted-foreground">{connection.role}</p>

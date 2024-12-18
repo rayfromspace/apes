@@ -175,22 +175,45 @@ export function Schedule() {
         view === 'day' ? 'opacity-100' : 'opacity-0 absolute'
       )}>
         {view === 'day' && (
-          <div className="h-[300px] overflow-y-auto">
+          <div className="h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent">
             <div className="grid grid-cols-1 gap-2">
-              {Array.from({ length: 6 }).map((_, i) => {
-                const hour = i + 6;
+              {Array.from({ length: 24 }).map((_, i) => {
+                const hour = i;
+                const formattedHour = hour.toString().padStart(2, '0');
+                const isPastNoon = hour >= 12;
+                const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                const amPm = isPastNoon ? 'PM' : 'AM';
+                
                 return (
                   <Card 
                     key={hour} 
-                    className="p-4 hover:shadow-md cursor-pointer transition-all hover:bg-accent"
+                    className={cn(
+                      "p-4 hover:shadow-md cursor-pointer transition-all hover:bg-accent",
+                      hour >= 9 && hour <= 17 ? "bg-accent/5" : "" // Highlight working hours
+                    )}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        {hour.toString().padStart(2, '0')}:00
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium w-16">
+                          {`${displayHour}:00 ${amPm}`}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formattedHour}:00
+                        </span>
+                      </div>
                       {hour === 8 && (
                         <div className="bg-primary/20 text-primary rounded-md px-3 py-1">
                           <span className="text-sm font-medium">Team Meeting</span>
+                        </div>
+                      )}
+                      {hour === 14 && (
+                        <div className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-md px-3 py-1">
+                          <span className="text-sm font-medium">Project Review</span>
+                        </div>
+                      )}
+                      {hour === 11 && (
+                        <div className="bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-md px-3 py-1">
+                          <span className="text-sm font-medium">Client Call</span>
                         </div>
                       )}
                     </div>

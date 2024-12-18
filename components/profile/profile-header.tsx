@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,16 +42,17 @@ export function ProfileHeader() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col items-center justify-center space-y-4">
-        <div className="relative">
-          <Avatar className="h-24 w-24">
-            <AvatarImage src={profile.avatar} alt={profile.name} />
-            <AvatarFallback>
-              {profile.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </AvatarFallback>
-          </Avatar>
+        <div className="flex flex-col items-center gap-4 md:flex-row md:gap-8">
+          <UserAvatar 
+            user={{
+              id: profile.id,
+              name: profile.name,
+              avatar: profile.avatar,
+              role: profile.role
+            }}
+            showHoverCard={false}
+            size="lg"
+          />
           <Button
             size="icon"
             variant="outline"

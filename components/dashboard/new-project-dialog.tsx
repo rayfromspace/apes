@@ -69,32 +69,58 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
     founderSkills: "",
     founderExperience: "",
     complementarySkills: "",
-  })
+  });
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFormData(prev => ({ ...prev, projectImage: e.target.files![0] }));
+    }
+  };
 
   const handleNext = () => {
-    setFormData(prev => ({ ...prev, step: Math.min(prev.step + 1, 3) }))
-  }
+    if (formData.step === 1) {
+      if (!formData.projectName.trim()) {
+        toast({
+          title: "Required Field",
+          description: "Please enter a project name",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!formData.projectType) {
+        toast({
+          title: "Required Field",
+          description: "Please select a project type",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!formData.projectCategory) {
+        toast({
+          title: "Required Field",
+          description: "Please select a project category",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    setFormData(prev => ({ ...prev, step: Math.min(prev.step + 1, 3) }));
+  };
 
   const handleBack = () => {
-    setFormData(prev => ({ ...prev, step: Math.max(prev.step - 1, 1) }))
-  }
+    setFormData(prev => ({ ...prev, step: Math.max(prev.step - 1, 1) }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Here you would typically make an API call to create the project
-      // For example: const response = await createProject(formData);
-      
-      // Close the dialog
       onOpenChange(false);
-      
-      // Show success message
       toast({
         title: "Success",
         description: "Project created successfully",
       });
-
-      // Redirect to admin dashboard
       router.push('/dashboard');
     } catch (error) {
       toast({
@@ -113,28 +139,6 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
         </DialogHeader>
         <div className="space-y-4">
           {formData.step === 1 && (
-            <div className="space-y-4">
-              <div className="flex flex-col items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors">
-                <div className="p-3 bg-primary/10 rounded-full">
-                  <Upload className="h-5 w-5 text-primary" />
-                </div>
-                <div className="text-center">
-                  <p className="text-base font-medium">Upload Project Image</p>
-                  <p className="text-sm text-muted-foreground">
-                    Drag and drop or click to upload
-                  </p>
-                </div>
-              </div>
-              <Button
-                className="w-full text-sm"
-                onClick={() => setFormData((prev) => ({ ...prev, step: 2 }))}
-              >
-                Next
-              </Button>
-            </div>
-          )}
-
-          {formData.step === 2 && (
             <div className="space-y-4">
               <div>
                 <Label className="text-sm">Project Name</Label>
@@ -196,6 +200,44 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
               </div>
 
               <div>
+                <div className="flex flex-col items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors cursor-pointer"
+                     onClick={() => fileInputRef.current?.click()}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                  <div className="p-3 bg-primary/10 rounded-full">
+                    <Upload className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-base font-medium">Upload Project Image</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formData.projectImage 
+                        ? `Selected: ${formData.projectImage.name}`
+                        : "Drag and drop or click to upload"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Recommended: Add a suitable cover image to make your project stand out
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                className="w-full text-sm"
+                onClick={handleNext}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+
+          {formData.step === 2 && (
+            <div className="space-y-4">
+              <div>
                 <Label className="text-sm">Description</Label>
                 <Textarea
                   className="mt-1.5 text-sm"
@@ -206,20 +248,11 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                       projectDescription: e.target.value,
                     }))
                   }
+                  placeholder="Describe your project..."
+                  rows={4}
                 />
               </div>
 
-              <Button
-                className="w-full text-sm"
-                onClick={() => setFormData((prev) => ({ ...prev, step: 3 }))}
-              >
-                Next
-              </Button>
-            </div>
-          )}
-
-          {formData.step === 3 && (
-            <div className="space-y-4">
               <div>
                 <Label className="text-sm">Your Skills</Label>
                 <Textarea
@@ -231,10 +264,31 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                       founderSkills: e.target.value,
                     }))
                   }
-                  placeholder="List your relevant skills"
+                  placeholder="List your relevant skills..."
+                  rows={3}
                 />
               </div>
 
+              <div className="flex justify-between gap-4">
+                <Button
+                  variant="outline"
+                  className="w-full text-sm"
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  className="w-full text-sm"
+                  onClick={handleNext}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {formData.step === 3 && (
+            <div className="space-y-4">
               <div>
                 <Label className="text-sm">Your Experience</Label>
                 <Textarea
@@ -246,7 +300,8 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                       founderExperience: e.target.value,
                     }))
                   }
-                  placeholder="Describe your relevant experience"
+                  placeholder="Describe your relevant experience..."
+                  rows={3}
                 />
               </div>
 
@@ -262,18 +317,22 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                     }))
                   }
                   placeholder="What skills are you looking for in potential collaborators?"
+                  rows={3}
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex justify-between gap-4">
                 <Button
                   variant="outline"
                   className="w-full text-sm"
-                  onClick={() => setFormData((prev) => ({ ...prev, step: 2 }))}
+                  onClick={handleBack}
                 >
                   Back
                 </Button>
-                <Button type="submit" className="w-full text-sm">
+                <Button
+                  className="w-full text-sm"
+                  onClick={handleSubmit}
+                >
                   Create Project
                 </Button>
               </div>
@@ -282,5 +341,5 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

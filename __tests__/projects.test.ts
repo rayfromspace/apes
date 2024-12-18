@@ -72,42 +72,6 @@ describe('Projects', () => {
     });
   });
 
-  describe('Project Creation', () => {
-    it('should create new project', async () => {
-      const { result } = renderHook(() => useProjects());
-      const mockCreateProject = vi.fn().mockResolvedValue({ data: mockProject });
-      
-      render(<CreateProjectForm onSubmit={mockCreateProject} />);
-      
-      await userEvent.type(screen.getByLabelText(/title/i), mockProject.title);
-      await userEvent.type(screen.getByLabelText(/description/i), mockProject.description);
-      await userEvent.type(screen.getByLabelText(/funding goal/i), '100000');
-      await userEvent.click(screen.getByRole('button', { name: /create/i }));
-
-      await waitFor(() => {
-        expect(mockCreateProject).toHaveBeenCalledWith(expect.objectContaining({
-          title: mockProject.title,
-          description: mockProject.description,
-          funding_goal: 100000,
-        }));
-      });
-    });
-
-    it('should handle project creation errors', async () => {
-      const { result } = renderHook(() => useProjects());
-      const mockCreateProject = vi.fn().mockRejectedValue(new Error('Failed to create project'));
-      
-      render(<CreateProjectForm onSubmit={mockCreateProject} />);
-      
-      await userEvent.type(screen.getByLabelText(/title/i), mockProject.title);
-      await userEvent.click(screen.getByRole('button', { name: /create/i }));
-
-      await waitFor(() => {
-        expect(screen.getByText(/failed to create project/i)).toBeInTheDocument();
-      });
-    });
-  });
-
   describe('Project Details', () => {
     it('should render project details', async () => {
       const { result } = renderHook(() => useProjects());

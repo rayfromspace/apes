@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/shared/user-avatar";
 
 const activities = [
   {
     user: {
+      id: 1,
       name: "Sarah Chen",
       avatar: "https://avatar.vercel.sh/sarah",
     },
@@ -13,6 +14,7 @@ const activities = [
   },
   {
     user: {
+      id: 2,
       name: "Alex Thompson",
       avatar: "https://avatar.vercel.sh/alex",
     },
@@ -22,6 +24,7 @@ const activities = [
   },
   {
     user: {
+      id: 3,
       name: "Michael Roberts",
       avatar: "https://avatar.vercel.sh/michael",
     },
@@ -41,10 +44,15 @@ export function DashboardActivities() {
         <div className="space-y-8">
           {activities.map((activity, i) => (
             <div key={i} className="flex items-center">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={activity.user.avatar} />
-                <AvatarFallback>{activity.user.name[0]}</AvatarFallback>
-              </Avatar>
+              <UserAvatar 
+                user={{
+                  id: activity.user.id,
+                  name: activity.user.name,
+                  avatar: activity.user.avatar,
+                }}
+                showHoverCard={true}
+                size="sm"
+              />
               <div className="ml-4 space-y-1">
                 <p className="text-sm font-medium leading-none">
                   {activity.user.name}{" "}

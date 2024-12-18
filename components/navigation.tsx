@@ -22,8 +22,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { usePathname, useRouter } from "next/navigation";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,17 +34,27 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const SIDEBAR_BREAKPOINT = 1024;
+const STORAGE_KEY = "sidebar-expanded";
 
 export default function Navigation() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : window.innerWidth >= SIDEBAR_BREAKPOINT;
+    }
+    return true;
+  });
+  
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     const handleResize = () => {
       if (typeof window !== 'undefined') {
-        setIsExpanded(window.innerWidth >= SIDEBAR_BREAKPOINT);
+        const shouldExpand = window.innerWidth >= SIDEBAR_BREAKPOINT;
+        setIsExpanded(shouldExpand);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(shouldExpand));
       }
     };
 
@@ -52,6 +62,10 @@ export default function Navigation() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const handleNavigation = (href: string) => {
+    router.push(href);
+  };
 
   const navigationItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -70,38 +84,25 @@ export default function Navigation() {
     <aside 
       className={cn(
         "h-screen sticky top-0 flex flex-col border-r bg-background transition-all duration-300",
-        isExpanded ? "w-64" : "w-[70px]",
-        isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        isExpanded ? "w-64" : "w-[70px]"
       )}
     >
-      {/* Mobile toggle */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "lg:hidden fixed right-4 top-4 z-40 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-          isOpen ? "right-[270px]" : "right-4"
-        )}
-      >
-        {isOpen ? (
-          <X className="h-6 w-6" />
-        ) : (
-          <Menu className="h-6 w-6" />
-        )}
-      </button>
-
       {/* Header */}
       <div className="flex h-16 items-center justify-between px-4 border-b">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 transition-opacity hover:opacity-80"
+          onClick={() => {
+            const newState = !isExpanded;
+            setIsExpanded(newState);
+            localStorage.setItem('nav-expanded', JSON.stringify(newState));
+          }}
+          className="inline-flex items-center gap-2"
         >
-          <div className="relative h-8 w-8 min-w-[32px]">
-            <Image
-              src="/ColabApes_Logo_Transparent.png"
-              alt="coLABapes Logo"
-              fill
-              sizes="32px"
-              className="object-contain"
+          <div className="rounded-md p-2 hover:bg-accent">
+            <Menu
+              className={cn(
+                "h-6 w-6 transition-all",
+                !isExpanded && "rotate-180"
+              )}
               priority
             />
           </div>
@@ -119,11 +120,11 @@ export default function Navigation() {
         <div className="px-3 py-2">
           <div className="space-y-1">
             {navigationItems.map((item) => (
-              <Link
+              <button
                 key={item.name}
-                href={item.href}
+                onClick={() => handleNavigation(item.href)}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
+                  "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
                   pathname === item.href ? "bg-accent" : "transparent",
                   !isExpanded && "justify-center"
                 )}
@@ -135,7 +136,7 @@ export default function Navigation() {
                 )}>
                   {item.name}
                 </span>
-              </Link>
+              </button>
             ))}
           </div>
         </div>
@@ -145,11 +146,11 @@ export default function Navigation() {
       <div className="mt-auto border-t">
         <div className="px-3 py-2">
           {bottomNavItems.map((item) => (
-            <Link
+            <button
               key={item.name}
-              href={item.href}
+              onClick={() => handleNavigation(item.href)}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
+                "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
                 pathname === item.href ? "bg-accent" : "transparent",
                 !isExpanded && "justify-center"
               )}
@@ -161,7 +162,7 @@ export default function Navigation() {
               )}>
                 {item.name}
               </span>
-            </Link>
+            </button>
           ))}
         </div>
 
@@ -169,10 +170,15 @@ export default function Navigation() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="w-full justify-start gap-2">
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src={user?.avatar} />
-                  <AvatarFallback>{user?.name?.[0]?.toUpperCase()}</AvatarFallback>
-                </Avatar>
+                <UserAvatar 
+                  user={{
+                    id: user?.id || '',
+                    name: user?.name || 'User',
+                    avatar: user?.avatar,
+                  }}
+                  showHoverCard={false}
+                  size="sm"
+                />
                 <span className={cn(
                   "transition-all duration-300",
                   !isExpanded && "hidden"

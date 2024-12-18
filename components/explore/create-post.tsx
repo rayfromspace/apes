@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/shared/user-avatar";
 
 export function CreatePost() {
   const [content, setContent] = useState("");
@@ -20,10 +20,15 @@ export function CreatePost() {
   return (
     <Card className="p-4 mb-6">
       <div className="flex gap-4">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={user?.avatar} />
-          <AvatarFallback>{user?.name?.[0]}</AvatarFallback>
-        </Avatar>
+        <UserAvatar 
+          user={{
+            id: user?.id || '',
+            name: user?.name || 'User',
+            avatar: user?.avatar,
+          }}
+          showHoverCard={false}
+          size="md"
+        />
         <div className="flex-1">
           <Textarea
             placeholder="Share project updates or start a discussion..."

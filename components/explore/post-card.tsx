@@ -1,26 +1,24 @@
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share2 } from "lucide-react";
-import Image from "next/image";
+"use client"
 
-interface PostAuthor {
-  name: string;
-  avatar: string;
-  role: string;
-}
-
-interface Post {
-  id: string;
-  author: PostAuthor;
-  content: string;
-  image?: string;
-  timestamp: string;
-  likes: number;
-  comments: number;
-}
+import Image from 'next/image'
+import { Card } from "@/components/ui/card"
+import { UserAvatar } from '@/components/shared/user-avatar'
+import { Heart, MessageCircle, Share2 } from 'lucide-react'
 
 interface PostCardProps {
-  post: Post;
+  post: {
+    author: {
+      id: string
+      name: string
+      avatar: string
+      role: string
+    }
+    content: string
+    image?: string
+    timestamp: string
+    likes: number
+    comments: number
+  }
 }
 
 export function PostCard({ post }: PostCardProps) {
@@ -28,10 +26,7 @@ export function PostCard({ post }: PostCardProps) {
     <Card className="mb-6">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-4">
-          <Avatar>
-            <AvatarImage src={post.author.avatar} />
-            <AvatarFallback>{post.author.name[0]}</AvatarFallback>
-          </Avatar>
+          <UserAvatar user={post.author} />
           <div>
             <div className="font-semibold">{post.author.name}</div>
             <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -71,5 +66,5 @@ export function PostCard({ post }: PostCardProps) {
         </div>
       </div>
     </Card>
-  );
+  )
 }

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { format } from "date-fns";
 
 interface Connection {
@@ -82,12 +82,18 @@ export function ConnectionsDialog({ open, onOpenChange }: ConnectionsDialogProps
                   {filteredConnections
                     .filter(conn => conn.status === "active")
                     .map((connection) => (
-                      <div key={connection.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-4">
-                          <Avatar>
-                            <AvatarImage src={connection.avatar} />
-                            <AvatarFallback>{connection.name.slice(0, 2)}</AvatarFallback>
-                          </Avatar>
+                      <div key={connection.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar 
+                            user={{
+                              id: connection.id,
+                              name: connection.name,
+                              avatar: connection.avatar,
+                              role: connection.role
+                            }}
+                            showHoverCard={true}
+                            size="md"
+                          />
                           <div>
                             <h4 className="font-medium">{connection.name}</h4>
                             <p className="text-sm text-muted-foreground">{connection.role}</p>
@@ -113,12 +119,18 @@ export function ConnectionsDialog({ open, onOpenChange }: ConnectionsDialogProps
               <ScrollArea className="h-[400px] pr-4">
                 <div className="space-y-4">
                   {filteredConnections.map((connection) => (
-                    <div key={connection.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <Avatar>
-                          <AvatarImage src={connection.avatar} />
-                          <AvatarFallback>{connection.name.slice(0, 2)}</AvatarFallback>
-                        </Avatar>
+                    <div key={connection.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar 
+                          user={{
+                            id: connection.id,
+                            name: connection.name,
+                            avatar: connection.avatar,
+                            role: connection.role
+                          }}
+                          showHoverCard={true}
+                          size="md"
+                        />
                         <div>
                           <h4 className="font-medium">{connection.name}</h4>
                           <p className="text-sm text-muted-foreground">{connection.role}</p>

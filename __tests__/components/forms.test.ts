@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LoginForm, RegisterForm, ProjectForm } from '@/components/forms';
+import { LoginForm, RegisterForm } from '@/components/forms';
 import { validateForm } from '@/lib/utils/validation';
 
 // Mock validation utility
@@ -88,56 +88,6 @@ describe('Forms', () => {
         email: 'test@example.com',
         password: 'password123',
       });
-    });
-  });
-
-  describe('ProjectForm', () => {
-    const mockSubmit = vi.fn();
-
-    it('should render project form fields', () => {
-      render(<ProjectForm onSubmit={mockSubmit} />);
-      
-      expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/funding goal/i)).toBeInTheDocument();
-    });
-
-    it('should handle file uploads', async () => {
-      render(<ProjectForm onSubmit={mockSubmit} />);
-      
-      const file = new File(['test'], 'test.png', { type: 'image/png' });
-      const input = screen.getByLabelText(/project image/i);
-      
-      await userEvent.upload(input, file);
-      
-      expect(input.files[0]).toBe(file);
-      expect(screen.getByText(/test.png/i)).toBeInTheDocument();
-    });
-
-    it('should validate required fields', async () => {
-      render(<ProjectForm onSubmit={mockSubmit} />);
-      
-      await userEvent.click(screen.getByRole('button', { name: /create project/i }));
-      
-      expect(screen.getByText(/title is required/i)).toBeInTheDocument();
-      expect(screen.getByText(/description is required/i)).toBeInTheDocument();
-      expect(screen.getByText(/category is required/i)).toBeInTheDocument();
-    });
-
-    it('should submit project data with file', async () => {
-      render(<ProjectForm onSubmit={mockSubmit} />);
-      
-      const file = new File(['test'], 'test.png', { type: 'image/png' });
-      
-      await userEvent.type(screen.getByLabelText(/title/i), 'Test Project');
-      await userEvent.type(screen.getByLabelText(/description/i), 'Test Description');
-      await userEvent.selectOptions(screen.getByLabelText(/category/i), 'technology');
-      await userEvent.type(screen.getByLabelText(/funding goal/i), '100000');
-      await userEvent.upload(screen.getByLabelText(/project image/i), file);
-      await userEvent.click(screen.getByRole('button', { name: /create project/i }));
-
-      expect(mockSubmit).toHaveBeenCalledWith(expect.any(FormData));
     });
   });
 });

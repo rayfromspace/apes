@@ -15,8 +15,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Icons } from '@/components/ui/icons';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
+import { UserAvatar } from "@/components/shared/user-avatar";
 
 const profileSchema = z.object({
   full_name: z.string().min(1, 'Name is required'),
@@ -121,12 +121,18 @@ export function ProfileEditForm({ user, onSuccess }: ProfileEditFormProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="flex items-center gap-4">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={user.avatar_url || ''} alt={user.full_name} />
-            <AvatarFallback>
-              {user.full_name.split(' ').map(n => n[0]).join('')}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <UserAvatar 
+              user={{
+                id: user.id,
+                name: user.full_name,
+                avatar: user.avatar_url,
+                role: user.role
+              }}
+              showHoverCard={false}
+              size="lg"
+            />
+          </div>
           <div>
             <Input
               type="file"

@@ -1,40 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import {
-  CalendarIcon,
-  MessageSquareIcon,
-  GitCommitIcon,
-  DollarSignIcon,
-  UserPlusIcon,
-} from "lucide-react";
+import { UserAvatar } from '@/components/shared/user-avatar';
+import { MessageCircle, DollarSign } from "lucide-react";
 
 interface Activity {
   id: string;
-  type: "comment" | "update" | "join" | "investment" | "milestone";
+  type: "comment" | "investment";
   user: {
-    name: string;
-    avatar?: string;
-  };
-  project?: {
-    name: string;
     id: string;
+    name: string;
+    avatar: string;
+  };
+  project: {
+    id: string;
+    name: string;
   };
   content: string;
   timestamp: string;
 }
 
 const activityIcons = {
-  comment: MessageSquareIcon,
-  update: GitCommitIcon,
-  join: UserPlusIcon,
-  investment: DollarSignIcon,
-  milestone: CalendarIcon,
-};
+  comment: MessageCircle,
+  investment: DollarSign,
+} as const;
 
 export function ActivityFeed() {
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -50,7 +41,11 @@ export function ActivityFeed() {
           {
             id: "1",
             type: "comment",
-            user: { name: "John Doe", avatar: "/avatars/john.jpg" },
+            user: { 
+              id: "user1",
+              name: "John Doe", 
+              avatar: "/avatars/john.jpg" 
+            },
             project: { name: "DeFi Platform", id: "defi-1" },
             content: "Left a comment on the latest update",
             timestamp: "2024-01-20T10:30:00Z",
@@ -58,12 +53,15 @@ export function ActivityFeed() {
           {
             id: "2",
             type: "investment",
-            user: { name: "Sarah Smith", avatar: "/avatars/sarah.jpg" },
+            user: { 
+              id: "user2",
+              name: "Sarah Smith", 
+              avatar: "/avatars/sarah.jpg" 
+            },
             project: { name: "Green Energy", id: "green-1" },
             content: "Invested 5000 USDC",
             timestamp: "2024-01-20T09:15:00Z",
           },
-          // Add more demo activities as needed
         ];
         setActivities(demoActivities);
         setIsLoading(false);
@@ -105,15 +103,7 @@ export function ActivityFeed() {
                 key={activity.id}
                 className="flex items-start space-x-4 rounded-lg border p-4 transition-colors hover:bg-muted/50"
               >
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={activity.user.avatar} alt={activity.user.name} />
-                  <AvatarFallback>
-                    {activity.user.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar user={activity.user} size="sm" />
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4 text-muted-foreground" />

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, MoreVertical, Plus, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Avatar, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -149,42 +149,108 @@ export default function Calendar() {
           </div>
 
           <div className="mt-8 relative">
-            {/* Time Labels */}
-            <div className="absolute left-0 top-0 bottom-0 w-16">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-20 text-sm text-muted-foreground">
-                  {(6 + i).toString().padStart(2, '0')}:00
+            {view === 'Day' ? (
+              <div className="flex">
+                {/* Time Labels */}
+                <div className="w-16 flex-shrink-0">
+                  {Array.from({ length: 24 }).map((_, i) => (
+                    <div key={i} className="h-20 text-sm text-muted-foreground">
+                      {i.toString().padStart(2, '0')}:00
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {/* Events Grid */}
-            <div className="ml-16 grid grid-cols-7 gap-4">
-              {Array.from({ length: 7 }).map((_, dayIndex) => (
-                <div key={dayIndex} className="relative h-[640px] border-l">
-                  {dayIndex === 1 && (
-                    <>
-                      <div className="absolute top-0 left-2 right-2 h-20 bg-blue-100 rounded-lg p-2">
-                        <p className="text-sm font-medium">Booking taxi app</p>
-                        <p className="text-xs text-muted-foreground">06:00 - 07:30</p>
-                        <div className="flex -space-x-2 mt-2">
-                          <Avatar className="h-6 w-6 border-2 border-background">
-                            <AvatarImage src="/placeholder.svg" />
-                          </Avatar>
-                          <Avatar className="h-6 w-6 border-2 border-background">
-                            <AvatarImage src="/placeholder.svg" />
-                          </Avatar>
-                        </div>
+                {/* Day Events */}
+                <ScrollArea className="flex-1" style={{ height: '320px' }}> {/* 4 hours * 80px */}
+                  <div className="relative border-l min-h-full">
+                    {/* Example events */}
+                    <div className="absolute top-0 left-2 right-2 h-20 bg-blue-100 rounded-lg p-2">
+                      <p className="text-sm font-medium">Morning Stand-up</p>
+                      <p className="text-xs text-muted-foreground">09:00 - 09:30</p>
+                      <div className="absolute -right-1 -top-1 flex -space-x-2">
+                        <UserAvatar
+                          user={{
+                            id: 1,
+                            name: 'John Doe',
+                            avatar: '/placeholder.svg',
+                          }}
+                          showHoverCard={true}
+                          size="sm"
+                        />
+                        <UserAvatar
+                          user={{
+                            id: 2,
+                            name: 'Jane Doe',
+                            avatar: '/placeholder.svg',
+                          }}
+                          showHoverCard={true}
+                          size="sm"
+                        />
                       </div>
-                      <div className="absolute top-24 left-2 right-2 h-16 bg-green-100 rounded-lg p-2">
-                        <p className="text-sm font-medium">Design onboarding</p>
-                        <p className="text-xs text-muted-foreground">07:30 - 08:30</p>
-                      </div>
-                    </>
-                  )}
+                    </div>
+                    {/* Grid lines for hours */}
+                    {Array.from({ length: 24 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="absolute left-0 right-0 h-20 border-t border-dashed border-muted"
+                        style={{ top: `${i * 80}px` }}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <>
+                {/* Existing Week/Month view code */}
+                <div className="absolute left-0 top-0 bottom-0 w-16">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="h-20 text-sm text-muted-foreground">
+                      {(6 + i).toString().padStart(2, '0')}:00
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+
+                {/* Events Grid */}
+                <div className="ml-16 grid grid-cols-7 gap-4">
+                  {Array.from({ length: 7 }).map((_, dayIndex) => (
+                    <div key={dayIndex} className="relative h-[640px] border-l">
+                      {dayIndex === 1 && (
+                        <>
+                          <div className="absolute top-0 left-2 right-2 h-20 bg-blue-100 rounded-lg p-2">
+                            <p className="text-sm font-medium">Booking taxi app</p>
+                            <p className="text-xs text-muted-foreground">06:00 - 07:30</p>
+                            <div className="flex -space-x-2">
+                              <UserAvatar
+                                user={{
+                                  id: 1,
+                                  name: 'John Doe',
+                                  avatar: '/placeholder.svg',
+                                }}
+                                showHoverCard={true}
+                                size="sm"
+                              />
+                              <UserAvatar
+                                user={{
+                                  id: 2,
+                                  name: 'Jane Doe',
+                                  avatar: '/placeholder.svg',
+                                }}
+                                showHoverCard={true}
+                                size="sm"
+                              />
+                            </div>
+                          </div>
+                          <div className="absolute top-24 left-2 right-2 h-16 bg-green-100 rounded-lg p-2">
+                            <p className="text-sm font-medium">Design onboarding</p>
+                            <p className="text-xs text-muted-foreground">07:30 - 08:30</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </ScrollArea>
 
