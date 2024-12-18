@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Plus, ChevronLeft, ChevronRight, Code, Clock } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Code, Clock } from 'lucide-react';
 import Link from "next/link";
 import {
   Dialog,
@@ -83,7 +83,33 @@ function CreateEventDialog() {
 
 export function Schedule() {
   const [view, setView] = useState<'week' | 'day'>('week');
+  const [startDayIndex, setStartDayIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const weekContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const container = weekContainerRef.current;
+    if (container) {
+      const handleWheel = (e: WheelEvent) => {
+        if (isMobile) {
+          e.preventDefault();
+          container.scrollLeft += e.deltaY;
+        }
+      };
+      container.addEventListener('wheel', handleWheel, { passive: false });
+      return () => container.removeEventListener('wheel', handleWheel);
+    }
+  }, [isMobile]);
 
   return (
     <Card className="p-4 w-full">
@@ -134,38 +160,61 @@ export function Schedule() {
         view === 'week' ? 'opacity-100' : 'opacity-0 absolute'
       )}>
         {view === 'week' && (
-          <div className="grid grid-cols-7 gap-2">
-            {DAYS.map((day) => (
-              <Card 
-                key={day.date}
-                className={cn(
-                  "p-4 transition-all hover:shadow-md cursor-pointer",
-                  day.name === "Monday" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "hover:bg-accent"
-                )}
-              >
-                <div className="hidden md:block text-sm font-medium mb-1">{day.name}</div>
-                <div className="hidden sm:block md:hidden text-sm font-medium mb-1">{day.short}</div>
-                <div className="sm:hidden text-sm font-medium mb-1">{day.initial}</div>
-                <div className="text-2xl font-bold">{day.date}</div>
-                {DEMO_EVENTS.filter(event => event.day === day.name).map(event => (
-                  <div 
-                    key={event.id}
-                    className={cn(
-                      "mt-2 p-2 rounded text-xs",
-                      event.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
-                      event.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
-                      "bg-orange-100 dark:bg-orange-900/50"
-                    )}
-                  >
-                    <div className="font-medium">{event.title}</div>
-                    <div className="text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {event.time}
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 md:hidden"
+              onClick={() => setStartDayIndex(prev => Math.max(0, prev - 1))}
+              disabled={startDayIndex === 0}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div 
+              ref={weekContainerRef}
+              className="grid grid-cols-3 md:grid-cols-7 gap-2 overflow-x-auto md:overflow-x-visible"
+            >
+              {(isMobile ? DAYS.slice(startDayIndex, startDayIndex + 3) : DAYS).map((day) => (
+                <Card 
+                  key={day.date}
+                  className={cn(
+                    "p-4 transition-all hover:shadow-md cursor-pointer min-w-[120px]",
+                    day.name === "Monday" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "hover:bg-accent"
+                  )}
+                >
+                  <div className="hidden md:block text-sm font-medium mb-1">{day.name}</div>
+                  <div className="hidden sm:block md:hidden text-sm font-medium mb-1">{day.short}</div>
+                  <div className="sm:hidden text-sm font-medium mb-1">{day.initial}</div>
+                  <div className="text-2xl font-bold">{day.date}</div>
+                  {DEMO_EVENTS.filter(event => event.day === day.name).map(event => (
+                    <div 
+                      key={event.id}
+                      className={cn(
+                        "mt-2 p-2 rounded text-xs",
+                        event.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
+                        event.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
+                        "bg-orange-100 dark:bg-orange-900/50"
+                      )}
+                    >
+                      <div className="font-medium">{event.title}</div>
+                      <div className="text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {event.time}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </Card>
-            ))}
+                  ))}
+                </Card>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 md:hidden"
+              onClick={() => setStartDayIndex(prev => Math.min(DAYS.length - 3, prev + 1))}
+              disabled={startDayIndex === DAYS.length - 3}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         )}
       </div>

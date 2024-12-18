@@ -84,7 +84,7 @@ export default function Navigation() {
     <aside 
       className={cn(
         "h-screen sticky top-0 flex flex-col border-r bg-background transition-all duration-300",
-        isExpanded ? "w-64" : "w-[70px]"
+        isExpanded ? "w-58" : "w-[70px]"
       )}
     >
       {/* Header */}
