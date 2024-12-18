@@ -95,19 +95,23 @@ export default function Navigation() {
             setIsExpanded(newState);
             localStorage.setItem('nav-expanded', JSON.stringify(newState));
           }}
-          className="inline-flex items-center gap-2"
+          className="inline-flex items-center gap-3"
         >
-          <div className="rounded-md p-2 hover:bg-accent">
-            <Menu
+          <div className="relative h-8 w-8 hover:opacity-80 transition-opacity">
+            <Image
+              src="/ColabApes_Logo_Transparent.png"
+              alt="coLABapes Logo"
+              fill
+              sizes="32px"
               className={cn(
-                "h-6 w-6 transition-all",
-                !isExpanded && "rotate-180"
+                "object-contain transition-transform duration-300",
+                !isExpanded && "rotate-[360deg]"
               )}
               priority
             />
           </div>
           <span className={cn(
-            "font-bold transition-all duration-300",
+            "font-bold text-lg transition-all duration-300",
             !isExpanded && "opacity-0 w-0"
           )}>
             coLABapes

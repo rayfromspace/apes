@@ -41,11 +41,16 @@ const DEMO_PROJECTS = [
     description: "A decentralized exchange platform with advanced trading features.",
     image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?q=80&w=2832&auto=format&fit=crop",
     category: "DeFi",
-    progress: 65,
-    fundingGoal: 50000,
-    currentFunding: 32500,
+    visibility: "Public",
+    funding_goal: 50000,
+    current_funding: 32500,
     founder: "Alex Thompson",
     skills: ["Solidity", "React", "Web3"],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    status: "In Progress",
+    team_members: [],
+    owner_id: "1"
   },
 ];
 

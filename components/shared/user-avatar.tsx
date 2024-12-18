@@ -51,18 +51,23 @@ export function UserAvatar({ user, showHoverCard = true, size = 'md' }: UserAvat
           {avatarComponent}
         </Link>
       </HoverCardTrigger>
-      <HoverCardContent className="w-80">
-        <div className="flex justify-between space-x-4">
-          <Avatar className="h-12 w-12">
+      <HoverCardContent 
+        className="w-64 z-[9999] relative" 
+        side="right" 
+        align="start"
+        sideOffset={5}
+      >
+        <div className="flex items-start gap-4">
+          <Avatar className="h-12 w-12 shrink-0">
             <AvatarImage src={user.avatar || ''} />
             <AvatarFallback>
               {user.name?.split(' ').map(n => n[0]).join('') || 'U'}
             </AvatarFallback>
           </Avatar>
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <h4 className="text-sm font-semibold">{user.name}</h4>
             {user.role && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {user.role}
               </p>
             )}
@@ -70,6 +75,7 @@ export function UserAvatar({ user, showHoverCard = true, size = 'md' }: UserAvat
               variant="outline"
               size="sm"
               asChild
+              className="mt-2"
             >
               <Link href={`/profile/${user.id}`}>
                 View Profile

@@ -3,21 +3,24 @@
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search } from "lucide-react";
+import { UserAvatar } from "@/components/shared/user-avatar";
 
 const SUGGESTED_USERS = [
   {
+    id: "1",
     name: "Elena Martinez",
     role: "Full Stack Developer",
     avatar: "https://avatar.vercel.sh/elena",
   },
   {
+    id: "2",
     name: "James Wilson",
     role: "Product Designer",
     avatar: "https://avatar.vercel.sh/james",
   },
   {
+    id: "3",
     name: "Sophia Lee",
     role: "AI Researcher",
     avatar: "https://avatar.vercel.sh/sophia",
@@ -38,10 +41,16 @@ export function ExploreSidebar() {
           {SUGGESTED_USERS.map((user) => (
             <Card key={user.name} className="p-4">
               <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarImage src={user.avatar} />
-                  <AvatarFallback>{user.name[0]}</AvatarFallback>
-                </Avatar>
+                <UserAvatar 
+                  user={{
+                    id: user.id,
+                    name: user.name,
+                    avatar: user.avatar,
+                    role: user.role
+                  }}
+                  showHoverCard={true}
+                  size="md"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{user.name}</div>
                   <div className="text-sm text-muted-foreground truncate">
