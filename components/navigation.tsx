@@ -38,18 +38,30 @@ const SIDEBAR_BREAKPOINT = 1024;
 const STORAGE_KEY = "sidebar-expanded";
 
 export default function Navigation() {
-  const [isExpanded, setIsExpanded] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : window.innerWidth >= SIDEBAR_BREAKPOINT;
-    }
-    return true;
-  });
+  const [mounted, setMounted] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
   
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
+  // Initialize the state from localStorage only after mounting
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored !== null) {
+        setIsExpanded(JSON.parse(stored));
+      } else {
+        const shouldExpand = window.innerWidth >= SIDEBAR_BREAKPOINT;
+        setIsExpanded(shouldExpand);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(shouldExpand));
+      }
+      setMounted(true);
+    }
+  }, []);
+
+  // Handle window resize
   useEffect(() => {
     const handleResize = () => {
       if (typeof window !== 'undefined') {
@@ -59,10 +71,20 @@ export default function Navigation() {
       }
     };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (mounted) {
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, [mounted]);
+
+  const toggleExpanded = () => {
+    const newState = !isExpanded;
+    setIsRotating(true);
+    setIsExpanded(newState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+    // Reset rotation after animation completes
+    setTimeout(() => setIsRotating(false), 300);
+  };
 
   const handleNavigation = (href: string) => {
     router.push(href);
@@ -91,11 +113,7 @@ export default function Navigation() {
       {/* Header */}
       <div className="flex h-16 items-center justify-between px-4 border-b">
         <button
-          onClick={() => {
-            const newState = !isExpanded;
-            setIsExpanded(newState);
-            localStorage.setItem('nav-expanded', JSON.stringify(newState));
-          }}
+          onClick={toggleExpanded}
           className="inline-flex items-center gap-3"
         >
           <div className="relative h-8 w-8 hover:opacity-80 transition-opacity">
@@ -106,7 +124,7 @@ export default function Navigation() {
               sizes="32px"
               className={cn(
                 "object-contain transition-transform duration-300",
-                !isExpanded && "rotate-[360deg]"
+                isRotating && "rotate-[360deg]"
               )}
               priority
             />
@@ -171,10 +189,10 @@ export default function Navigation() {
           ))}
         </div>
 
-        <div className="p-3 mt-2">
+        <div className="px-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="w-full justify-start gap-2">
+              <Button variant="ghost" className="w-full h-10 px-3 justify-start">
                 <UserAvatar 
                   user={{
                     id: user?.id || '',
@@ -185,7 +203,7 @@ export default function Navigation() {
                   size="sm"
                 />
                 <span className={cn(
-                  "transition-all duration-300",
+                  "ml-2 transition-all duration-300",
                   !isExpanded && "hidden"
                 )}>
                   {user?.name || 'User'}
@@ -207,7 +225,7 @@ export default function Navigation() {
           </DropdownMenu>
         </div>
 
-        <div className="p-3">
+        <div className="px-3">
           <ModeToggle />
         </div>
       </div>

@@ -30,6 +30,7 @@ interface ProjectFormData {
   projectName: string
   projectType: string
   projectCategory: string
+  customCategory: string
   projectDescription: string
   founderSkills: string
   founderExperience: string
@@ -65,6 +66,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
     projectName: "",
     projectType: "",
     projectCategory: "",
+    customCategory: "",
     projectDescription: "",
     founderSkills: "",
     founderExperience: "",
@@ -101,6 +103,14 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
         toast({
           title: "Required Field",
           description: "Please select a project category",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (formData.projectCategory === "Other" && !formData.customCategory.trim()) {
+        toast({
+          title: "Required Field",
+          description: "Please enter a custom category",
           variant: "destructive",
         });
         return;
@@ -176,9 +186,13 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                 <Label className="text-sm">Category</Label>
                 <Select
                   value={formData.projectCategory}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, projectCategory: value }))
-                  }
+                  onValueChange={(value) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      projectCategory: value,
+                      customCategory: value !== "Other" ? "" : prev.customCategory
+                    }))
+                  }}
                 >
                   <SelectTrigger className="mt-1.5">
                     <SelectValue placeholder="Select category" />
@@ -190,7 +204,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                     ).map((category) => (
                       <SelectItem
                         key={category}
-                        value={category.toLowerCase()}
+                        value={category}
                       >
                         {category}
                       </SelectItem>
@@ -198,6 +212,23 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                   </SelectContent>
                 </Select>
               </div>
+
+              {formData.projectCategory === "Other" && (
+                <div>
+                  <Label className="text-sm">Custom Category</Label>
+                  <Input
+                    className="mt-1.5"
+                    placeholder="Enter your custom category"
+                    value={formData.customCategory}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        customCategory: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              )}
 
               <div>
                 <div className="flex flex-col items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors cursor-pointer"
