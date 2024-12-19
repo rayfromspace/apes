@@ -5,18 +5,18 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 160 5% 3.9%;
+    --foreground: 160 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 160 5% 3.9%;
+    --card-foreground: 160 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 160 5% 3.9%;
+    --popover-foreground: 160 10% 3.9%;
     --primary: 142 76% 36%;
     --primary-foreground: 355.7 100% 97.3%;
     --secondary: 160 84% 39%;
     --secondary-foreground: 355.7 100% 97.3%;
     --muted: 160 4.8% 95.9%;
     --muted-foreground: 160 3.8% 46.1%;
-    --accent: 160 4.8% 95.9%;
+    --accent: 142 76% 36%;
     --accent-foreground: 160 5% 3.9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -24,35 +24,130 @@
     --input: 160 5.9% 90%;
     --ring: 142 76% 36%;
     --radius: 1rem;
-    --glow-color: 160 5% 3.9%;
-    --glow-strength: 0.05;
-    --glow-spread: 8px;
   }
- 
+
   .dark {
-    --background: 160 5% 3.9%;
-    --foreground: 160 4.8% 95.9%;
-    --card: 160 5% 3.9%;
-    --card-foreground: 160 4.8% 95.9%;
-    --popover: 160 5% 3.9%;
-    --popover-foreground: 160 4.8% 95.9%;
+    --background: 160 10% 5%;
+    --foreground: 0 0% 98%;
+    --card: 160 10% 6.5%;
+    --card-foreground: 0 0% 98%;
+    --popover: 160 10% 6.5%;
+    --popover-foreground: 0 0% 98%;
     --primary: 142 76% 36%;
     --primary-foreground: 355.7 100% 97.3%;
     --secondary: 160 84% 39%;
     --secondary-foreground: 355.7 100% 97.3%;
-    --muted: 160 3.7% 15.9%;
-    --muted-foreground: 160 5% 64.9%;
-    --accent: 160 3.7% 15.9%;
-    --accent-foreground: 160 4.8% 95.9%;
+    --muted: 160 4% 12.5%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 160 4.8% 95.9%;
-    --border: 160 3.7% 15.9%;
-    --input: 160 3.7% 15.9%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 160 4% 16%;
+    --input: 160 4% 16%;
     --ring: 142 76% 36%;
-    --glow-color: 160 4.8% 95.9%;
-    --glow-strength: 0.08;
-    --glow-spread: 12px;
   }
+}
+
+/* Rounded corners for all cards */
+.card {
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Softer buttons */
+.button {
+  border-radius: calc(var(--radius) * 0.75);
+  transition: all 0.2s ease;
+}
+
+/* Glossy card effect with green tint */
+.dark .card-glass {
+  background: linear-gradient(
+    to bottom right,
+    hsl(160 10% 8% / 0.95),
+    hsl(160 10% 6.5% / 0.95)
+  );
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(160 4% 16% / 0.5);
+  box-shadow: 
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1),
+    inset 0 1px 0 hsl(160 4% 16% / 0.3);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.dark .card-glass:hover {
+  background: linear-gradient(
+    to bottom right,
+    hsl(160 10% 9% / 0.95),
+    hsl(160 10% 7.5% / 0.95)
+  );
+  box-shadow: 
+    0 10px 15px -3px rgb(0 0 0 / 0.2),
+    0 4px 6px -4px rgb(0 0 0 / 0.2),
+    inset 0 1px 0 hsl(160 4% 16% / 0.4);
+}
+
+/* Soft glow effects with green accent */
+.dark .glow-effect {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.dark .glow-effect::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(
+    to bottom right,
+    hsl(142 76% 36% / 0.2),
+    transparent,
+    hsl(160 4% 16% / 0.2)
+  );
+  border-radius: inherit;
+  z-index: -1;
+  transition: opacity 0.2s ease;
+  opacity: 0;
+}
+
+.dark .glow-effect:hover::after {
+  opacity: 1;
+}
+
+/* Softer shadows with green tint */
+.dark .shadow-soft {
+  box-shadow: 0 0 15px 0 hsl(142 76% 36% / 0.1);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.dark .shadow-soft:hover {
+  box-shadow: 0 0 20px 0 hsl(142 76% 36% / 0.15);
+}
+
+/* Input fields with softer edges */
+.input {
+  border-radius: calc(var(--radius) * 0.75);
+  transition: border-color 0.2s ease;
+}
+
+/* Tabs with rounded edges */
+.tabs-list {
+  border-radius: calc(var(--radius) * 0.5);
+  overflow: hidden;
+}
+
+.tab {
+  border-radius: calc(var(--radius) * 0.5);
+}
+
+/* Badge with softer corners */
+.badge {
+  border-radius: calc(var(--radius) * 0.5);
+  padding: 0.25rem 0.75rem;
 }
 
 @layer base {

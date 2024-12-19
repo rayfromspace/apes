@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { cn } from "@/lib/utils";
 
 const SUGGESTED_USERS = [
   {
@@ -30,9 +31,17 @@ const SUGGESTED_USERS = [
 export function ExploreSidebar() {
   return (
     <div className="space-y-6">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search projects and creators..." className="pl-9" />
+      <div className="relative group">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-hover:text-primary/60 group-focus-within:text-primary" />
+        <Input 
+          placeholder="Search projects and creators..." 
+          className={cn(
+            "pl-9 h-12 text-base transition-all duration-300",
+            "hover:shadow-[0_0_15px_rgba(0,200,0,0.3)] focus:shadow-[0_0_20px_rgba(0,200,0,0.4)]",
+            "border-2 hover:border-primary/30 focus:border-primary/40",
+            "bg-background/80 backdrop-blur hover:bg-background/90 focus:bg-background"
+          )} 
+        />
       </div>
 
       <div>
