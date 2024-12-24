@@ -1,24 +1,23 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import { TEST_USER_IDS } from "@/data/test-projects";
 
-// Define test users
+// Define test users with simple IDs
 const TEST_USERS = {
-  [TEST_USER_IDS.AI_PLATFORM_FOUNDER]: {
-    id: TEST_USER_IDS.AI_PLATFORM_FOUNDER,
-    name: "AI Platform Founder",
-    email: "ai.founder@example.com",
+  "user-1": {
+    id: "user-1",
+    name: "Test User 1",
+    email: "user1@example.com",
   },
-  [TEST_USER_IDS.DIGITAL_ASSET_FOUNDER]: {
-    id: TEST_USER_IDS.DIGITAL_ASSET_FOUNDER,
-    name: "Digital Asset Founder",
-    email: "digital.founder@example.com",
+  "user-2": {
+    id: "user-2",
+    name: "Test User 2",
+    email: "user2@example.com",
   },
-  [TEST_USER_IDS.VIRTUAL_EVENT_FOUNDER]: {
-    id: TEST_USER_IDS.VIRTUAL_EVENT_FOUNDER,
-    name: "Virtual Event Founder",
-    email: "virtual.founder@example.com",
+  "user-3": {
+    id: "user-3",
+    name: "Test User 3",
+    email: "user3@example.com",
   },
 };
 
@@ -30,7 +29,7 @@ interface TestAuthContextType {
 const TestAuthContext = createContext<TestAuthContextType | undefined>(undefined);
 
 export function TestAuthProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState(TEST_USER_IDS.AI_PLATFORM_FOUNDER);
+  const [currentUser, setCurrentUser] = useState("user-1");
 
   const switchUser = (userId: string) => {
     if (TEST_USERS[userId]) {

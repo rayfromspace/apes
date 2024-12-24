@@ -5,14 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useProjectStore } from "@/lib/stores/project-store";
-import { useAuth } from "@/lib/auth";
 import { Project, ProjectCategory, ProjectVisibility } from "@/types/project";
 import { UserRole } from "@/types/user";
 import { Badge } from "@/components/ui/badge";
 import { NewProjectDialog } from "./new-project-dialog";
-import { TEST_PROJECTS, TEST_USER_IDS } from "@/data/test-projects";
+import { useRouter } from "next/navigation";
+import { useProjectStore } from "@/lib/stores/project-store";
+import { useAuth } from "@/lib/auth";
 
 const MAX_ACTIVE_PROJECTS = 3;
 
@@ -81,8 +80,7 @@ export function DashboardProjects() {
   
   // Get user's active projects (projects where they are a member or founder)
   const activeProjects = projects.filter(project => {
-    // For testing: if user is not logged in, show all test projects
-    if (!user) return true;
+    if (!user) return false;
 
     return project.founder_id === user.id || 
            (project.members || []).some(member => 
