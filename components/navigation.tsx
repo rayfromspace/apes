@@ -19,7 +19,7 @@ import {
   LayoutDashboard,
   Briefcase,
   LogOut,
-  User
+  User,
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -41,14 +41,23 @@ export default function Navigation() {
   const [mounted, setMounted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
-  
+
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
+  const handleLogout = async () => {
+    try {
+      await logout(router);
+      console.log("Redirected to login page after logout.");
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
+  };
+
   // Initialize the state from localStorage only after mounting
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored !== null) {
         setIsExpanded(JSON.parse(stored));
@@ -64,7 +73,7 @@ export default function Navigation() {
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         const shouldExpand = window.innerWidth >= SIDEBAR_BREAKPOINT;
         setIsExpanded(shouldExpand);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(shouldExpand));
@@ -72,8 +81,8 @@ export default function Navigation() {
     };
 
     if (mounted) {
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
     }
   }, [mounted]);
 
@@ -104,7 +113,7 @@ export default function Navigation() {
   ];
 
   return (
-    <aside 
+    <aside
       className={cn(
         "h-screen sticky top-0 flex flex-col border-r bg-background transition-all duration-300",
         isExpanded ? "w-58" : "w-[70px]"
@@ -129,10 +138,12 @@ export default function Navigation() {
               priority
             />
           </div>
-          <span className={cn(
-            "font-bold text-lg transition-all duration-300",
-            !isExpanded && "opacity-0 w-0"
-          )}>
+          <span
+            className={cn(
+              "font-bold text-lg transition-all duration-300",
+              !isExpanded && "opacity-0 w-0"
+            )}
+          >
             coLABapes
           </span>
         </button>
@@ -153,10 +164,12 @@ export default function Navigation() {
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                <span className={cn(
-                  "transition-all duration-300",
-                  !isExpanded && "hidden"
-                )}>
+                <span
+                  className={cn(
+                    "transition-all duration-300",
+                    !isExpanded && "hidden"
+                  )}
+                >
                   {item.name}
                 </span>
               </button>
@@ -179,10 +192,12 @@ export default function Navigation() {
               )}
             >
               <item.icon className="h-4 w-4" />
-              <span className={cn(
-                "transition-all duration-300",
-                !isExpanded && "hidden"
-              )}>
+              <span
+                className={cn(
+                  "transition-all duration-300",
+                  !isExpanded && "hidden"
+                )}
+              >
                 {item.name}
               </span>
             </button>
@@ -192,21 +207,26 @@ export default function Navigation() {
         <div className="px-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="w-full h-10 px-3 justify-start">
-                <UserAvatar 
+              <Button
+                variant="ghost"
+                className="w-full h-10 px-3 justify-start"
+              >
+                <UserAvatar
                   user={{
-                    id: user?.id || '',
-                    name: user?.name || 'User',
+                    id: user?.id || "",
+                    name: user?.name || "User",
                     avatar: user?.avatar,
                   }}
                   showHoverCard={false}
                   size="sm"
                 />
-                <span className={cn(
-                  "ml-2 transition-all duration-300",
-                  !isExpanded && "hidden"
-                )}>
-                  {user?.name || 'User'}
+                <span
+                  className={cn(
+                    "ml-2 transition-all duration-300",
+                    !isExpanded && "hidden"
+                  )}
+                >
+                  {user?.name || "User"}
                 </span>
               </Button>
             </DropdownMenuTrigger>
@@ -217,7 +237,7 @@ export default function Navigation() {
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => logout()}>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
