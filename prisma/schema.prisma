@@ -15,12 +15,13 @@ model User {
   id                    String    @id @default(cuid())
   email                 String    @unique
   password              String?
+  username              String?   @unique
   full_name             String
   avatar_url            String?
   role                  UserRole  @default(both)
   bio                   String?
   linkedin_url          String?
-  twitter_url           String?
+  twitter_url          String?
   company               String?
   position              String?
   location              String?
