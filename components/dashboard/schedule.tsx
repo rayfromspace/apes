@@ -12,81 +12,252 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+import { getUserEvents, createEvent } from "@/lib/api/events";
+import { Event } from "@/types/events";
+import { format, isSameDay } from "date-fns";
+import { useToast } from "@/components/ui/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { UserAvatar } from "@/components/shared/user-avatar";
 
-const DAYS = [
-  { name: "Sunday", short: "Sun", initial: "S", date: "16" },
-  { name: "Monday", short: "Mon", initial: "M", date: "17" },
-  { name: "Tuesday", short: "Tue", initial: "T", date: "18" },
-  { name: "Wednesday", short: "Wed", initial: "W", date: "19" },
-  { name: "Thursday", short: "Thu", initial: "T", date: "20" },
-  { name: "Friday", short: "Fri", initial: "F", date: "21" },
-  { name: "Saturday", short: "Sat", initial: "S", date: "22" },
-];
+const getDaysForCurrentWeek = () => {
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
 
-const DEMO_EVENTS = [
-  {
-    id: "1",
-    title: "Team Meeting",
-    time: "10:00 AM",
-    day: "Monday",
-    type: "meeting",
-  },
-  {
-    id: "2",
-    title: "Project Review",
-    time: "2:00 PM",
-    day: "Wednesday",
-    type: "review",
-  },
-  {
-    id: "3",
-    title: "Client Call",
-    time: "11:30 AM",
-    day: "Thursday",
-    type: "call",
-  },
-];
+  return [
+    { name: "Sunday", short: "Sun", initial: "S", date: format(startOfWeek, 'd') },
+    { name: "Monday", short: "Mon", initial: "M", date: format(new Date(startOfWeek.setDate(startOfWeek.getDate() + 1)), 'd') },
+    { name: "Tuesday", short: "Tue", initial: "T", date: format(new Date(startOfWeek.setDate(startOfWeek.getDate() + 1)), 'd') },
+    { name: "Wednesday", short: "Wed", initial: "W", date: format(new Date(startOfWeek.setDate(startOfWeek.getDate() + 1)), 'd') },
+    { name: "Thursday", short: "Thu", initial: "T", date: format(new Date(startOfWeek.setDate(startOfWeek.getDate() + 1)), 'd') },
+    { name: "Friday", short: "Fri", initial: "F", date: format(new Date(startOfWeek.setDate(startOfWeek.getDate() + 1)), 'd') },
+    { name: "Saturday", short: "Sat", initial: "S", date: format(new Date(startOfWeek.setDate(startOfWeek.getDate() + 1)), 'd') },
+  ];
+};
 
-function CreateEventDialog() {
+export interface CreateEventDialogProps {
+  onClose: () => void;
+}
+
+export function CreateEventDialog({ onClose }: CreateEventDialogProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    date: format(new Date(), 'yyyy-MM-dd'),
+    startTime: format(new Date(), 'HH:mm'),
+    duration: "60", // default 60 minutes
+    type: "meeting" as Event["type"],
+    isVirtual: true,
+    meetingLink: "",
+    projectId: "project-1", // TODO: Allow selecting project
+    projectName: "DeFi Platform",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setIsLoading(true);
+    try {
+      const event = await createEvent({
+        ...formData,
+        createdBy: {
+          id: user.id,
+          name: user.email || "Unknown",
+        },
+        attendees: [
+          {
+            id: user.id,
+            name: user.email || "Unknown",
+          }
+        ],
+      });
+
+      if (event) {
+        toast({
+          title: "Success",
+          description: "Event created successfully",
+        });
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error creating event:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create event",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Create New Event</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-4 py-4">
-        <div className="space-y-2">
-          <Label htmlFor="title">Event Title</Label>
-          <Input id="title" placeholder="Enter event title" />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit}>
+        <DialogHeader>
+          <DialogTitle>Create New Event</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="date">Date</Label>
-            <Input id="date" type="date" />
+            <Label htmlFor="title">Event Title</Label>
+            <Input
+              id="title"
+              placeholder="Enter event title"
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="startTime">Start Time</Label>
+              <Input
+                id="startTime"
+                type="time"
+                value={formData.startTime}
+                onChange={(e) =>
+                  setFormData({ ...formData, startTime: e.target.value })
+                }
+                required
+              />
+            </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="time">Time</Label>
-            <Input id="time" type="time" />
+            <Label htmlFor="duration">Duration (minutes)</Label>
+            <Select
+              value={formData.duration}
+              onValueChange={(value) =>
+                setFormData({ ...formData, duration: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select duration" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="15">15 minutes</SelectItem>
+                <SelectItem value="30">30 minutes</SelectItem>
+                <SelectItem value="45">45 minutes</SelectItem>
+                <SelectItem value="60">1 hour</SelectItem>
+                <SelectItem value="90">1.5 hours</SelectItem>
+                <SelectItem value="120">2 hours</SelectItem>
+                <SelectItem value="180">3 hours</SelectItem>
+                <SelectItem value="240">4 hours</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="type">Event Type</Label>
+            <Select
+              value={formData.type}
+              onValueChange={(value) =>
+                setFormData({ ...formData, type: value as Event["type"] })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select event type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="meeting">Meeting</SelectItem>
+                <SelectItem value="review">Review</SelectItem>
+                <SelectItem value="call">Call</SelectItem>
+                <SelectItem value="deadline">Deadline</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              placeholder="Add event description"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="meetingLink">Meeting Link</Label>
+            <Input
+              id="meetingLink"
+              placeholder="Add meeting link (optional)"
+              value={formData.meetingLink}
+              onChange={(e) =>
+                setFormData({ ...formData, meetingLink: e.target.value })
+              }
+            />
           </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Input id="description" placeholder="Add event description" />
-        </div>
-      </div>
+        <DialogFooter>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? "Creating..." : "Create Event"}
+          </Button>
+        </DialogFooter>
+      </form>
     </DialogContent>
   );
 }
 
 export function Schedule() {
+  const { user } = useAuth();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<'week' | 'day'>('week');
   const [startDayIndex, setStartDayIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const weekContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const [days] = useState(getDaysForCurrentWeek());
+  const today = new Date();
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      if (!user) return;
+      setIsLoading(true);
+      try {
+        const userEvents = await getUserEvents(user.id);
+        setEvents(userEvents);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [user]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -97,24 +268,18 @@ export function Schedule() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    const container = weekContainerRef.current;
-    if (container) {
-      const handleWheel = (e: WheelEvent) => {
-        if (isMobile) {
-          e.preventDefault();
-          container.scrollLeft += e.deltaY;
-        }
-      };
-      container.addEventListener('wheel', handleWheel, { passive: false });
-      return () => container.removeEventListener('wheel', handleWheel);
-    }
-  }, [isMobile]);
+  const getEventsForDay = (day: string) => {
+    return events.filter(event => {
+      const eventDate = new Date(event.date);
+      const dayName = format(eventDate, 'EEEE');
+      return dayName === day;
+    });
+  };
 
   return (
     <Card className="p-4 w-full">
       <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-        <h1 className="text-2xl font-bold">December, 2023</h1>
+        <h1 className="text-2xl font-bold">{format(new Date(), 'MMMM, yyyy')}</h1>
         <div className="flex items-center gap-4">
           <div className="flex bg-muted rounded-lg">
             <Button 
@@ -140,7 +305,7 @@ export function Schedule() {
             >
               <Link href="/calendar">Calendar</Link>
             </Button>
-            <Dialog>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button 
                   variant="outline"
@@ -149,7 +314,7 @@ export function Schedule() {
                   <Plus className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
-              <CreateEventDialog />
+              <CreateEventDialog onClose={() => setShowCreateDialog(false)} />
             </Dialog>
           </div>
         </div>
@@ -174,32 +339,34 @@ export function Schedule() {
               ref={weekContainerRef}
               className="grid grid-cols-3 md:grid-cols-7 gap-2 overflow-x-auto md:overflow-x-visible"
             >
-              {(isMobile ? DAYS.slice(startDayIndex, startDayIndex + 3) : DAYS).map((day) => (
+              {(isMobile ? days.slice(startDayIndex, startDayIndex + 3) : days).map((day) => (
                 <Card 
                   key={day.date}
                   className={cn(
                     "p-4 transition-all hover:shadow-md cursor-pointer min-w-[120px]",
-                    day.name === "Monday" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "hover:bg-accent"
+                    format(today, 'EEEE') === day.name ? "bg-primary text-primary-foreground hover:bg-primary/90" : "hover:bg-accent"
                   )}
                 >
                   <div className="hidden md:block text-sm font-medium mb-1">{day.name}</div>
                   <div className="hidden sm:block md:hidden text-sm font-medium mb-1">{day.short}</div>
                   <div className="sm:hidden text-sm font-medium mb-1">{day.initial}</div>
                   <div className="text-2xl font-bold">{day.date}</div>
-                  {DEMO_EVENTS.filter(event => event.day === day.name).map(event => (
+                  {getEventsForDay(day.name).map(event => (
                     <div 
                       key={event.id}
                       className={cn(
                         "mt-2 p-2 rounded text-xs",
                         event.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
                         event.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
-                        "bg-orange-100 dark:bg-orange-900/50"
+                        event.type === 'call' ? "bg-orange-100 dark:bg-orange-900/50" :
+                        event.type === 'deadline' ? "bg-red-100 dark:bg-red-900/50" :
+                        "bg-purple-100 dark:bg-purple-900/50"
                       )}
                     >
                       <div className="font-medium">{event.title}</div>
                       <div className="text-muted-foreground flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {event.time}
+                        {event.startTime}
                       </div>
                     </div>
                   ))}
@@ -210,8 +377,8 @@ export function Schedule() {
               variant="outline"
               size="icon"
               className="absolute right-0 top-1/2 -translate-y-1/2 z-10 md:hidden"
-              onClick={() => setStartDayIndex(prev => Math.min(DAYS.length - 3, prev + 1))}
-              disabled={startDayIndex === DAYS.length - 3}
+              onClick={() => setStartDayIndex(prev => Math.min(days.length - 3, prev + 1))}
+              disabled={startDayIndex === days.length - 3}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -250,21 +417,25 @@ export function Schedule() {
                           {formattedHour}:00
                         </span>
                       </div>
-                      {hour === 8 && (
-                        <div className="bg-primary/20 text-primary rounded-md px-3 py-1">
-                          <span className="text-sm font-medium">Team Meeting</span>
+                      {getEventsForDay("Monday").filter(event => event.startTime === `${formattedHour}:00`).map(event => (
+                        <div 
+                          key={event.id}
+                          className={cn(
+                            "rounded-md p-2 text-xs",
+                            event.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
+                            event.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
+                            event.type === 'call' ? "bg-orange-100 dark:bg-orange-900/50" :
+                            event.type === 'deadline' ? "bg-red-100 dark:bg-red-900/50" :
+                            "bg-purple-100 dark:bg-purple-900/50"
+                          )}
+                        >
+                          <div className="font-medium">{event.title}</div>
+                          <div className="text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {event.startTime}
+                          </div>
                         </div>
-                      )}
-                      {hour === 14 && (
-                        <div className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-md px-3 py-1">
-                          <span className="text-sm font-medium">Project Review</span>
-                        </div>
-                      )}
-                      {hour === 11 && (
-                        <div className="bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-md px-3 py-1">
-                          <span className="text-sm font-medium">Client Call</span>
-                        </div>
-                      )}
+                      ))}
                     </div>
                   </Card>
                 );
