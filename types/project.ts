@@ -1,29 +1,23 @@
 import type { User } from './user';
 import type { Investment } from './investment';
 
-export type ProjectStatus = 'planning' | 'active' | 'completed' | 'on_hold' | 'cancelled';
-export type ProjectCategory = 'technology' | 'healthcare' | 'finance' | 'education' | 'other';
-export type ProjectVisibility = 'public' | 'private' | 'unlisted';
+export type ProjectType = 'product' | 'service';
+export type ProjectStatus = 'draft' | 'active' | 'paused' | 'completed';
+export type ProjectVisibility = 'private' | 'public' | 'unlisted';
 
 export interface Project {
   id: string;
   title: string;
   description: string;
-  image_url?: string;
-  category: ProjectCategory;
+  type: ProjectType;  // Using type to match database schema
+  category: string;  // Changed to string
   visibility: ProjectVisibility;
-  progress: number;
+  status: ProjectStatus;
+  founder_id: string;
   funding_goal: number;
   current_funding: number;
-  founder_id: string;
-  skills: string[];
-  start_date: string;
-  end_date?: string;
-  status: ProjectStatus;
-  team_members: TeamMember[];
-  updates: ProjectUpdate[];
-  milestones: ProjectMilestone[];
-  documents: ProjectDocument[];
+  team_size: number;
+  image_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -32,12 +26,15 @@ export interface TeamMember {
   id: string;
   project_id: string;
   user_id: string;
-  role: 'owner' | 'admin' | 'member' | 'viewer';
+  role: 'founder' | 'cofounder' | 'board_member' | 'team_member';
   joined_at: string;
-  permissions: string[];
-  user: User;
+  // Temporarily commented out
+  // permissions: string[];
+  // user: User;
 }
 
+// Temporarily commented out until needed
+/*
 export interface ProjectUpdate {
   id: string;
   project_id: string;
@@ -84,7 +81,7 @@ export interface ProjectMetrics {
 }
 
 export interface ProjectFiltersState {
-  category?: ProjectCategory;
+  category?: string;
   status?: ProjectStatus;
   search?: string;
   sortBy?: 'newest' | 'oldest' | 'funding' | 'progress';
@@ -92,22 +89,27 @@ export interface ProjectFiltersState {
   maxFunding?: number;
   skills?: string[];
 }
+*/
 
 export interface CreateProjectInput {
   title: string;
   description: string;
-  category: ProjectCategory;
-  visibility: ProjectVisibility;
-  funding_goal: number;
-  start_date: string;
-  end_date?: string;
-  skills: string[];
-  image?: File;
+  type: ProjectType;  // Using type to match database schema
+  category: string;  // Changed to string
+  founder_id: string;
+  status?: ProjectStatus;
+  visibility?: ProjectVisibility;
+  funding_goal?: number;
+  current_funding?: number;
+  team_size?: number;
+  image_url?: string;
 }
 
 export interface ProjectWithRelations extends Project {
   founder: User;
-  team_members: (TeamMember & { user: User })[];
-  investments: Investment[];
-  metrics: ProjectMetrics;
+  // Temporarily commented out
+  // team_members: (TeamMember & { user: User })[];
+  // user: User;
+  // investments: Investment[];
+  // metrics: ProjectMetrics;
 }

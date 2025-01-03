@@ -1,54 +1,39 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export default withAuth(
-  function middleware(req) {
-    const { pathname } = req.nextUrl;
-    const token = req.nextauth.token;
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient({ req, res });
 
-    // Redirect authenticated users away from auth pages
-    if (token && (pathname.startsWith("/auth/"))) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
+  // Refresh session if expired
+  const { data: { session }, error } = await supabase.auth.getSession();
 
-    // Role-based access control
-    if (pathname.startsWith("/dashboard/founder") && token?.role !== "founder") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
+  // Handle auth redirects
+  const { pathname } = req.nextUrl;
 
-    if (pathname.startsWith("/dashboard/investor") && token?.role !== "investor") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
-
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl;
-        
-        // Allow public routes
-        if (pathname.startsWith("/auth/") || pathname === "/") {
-          return true;
-        }
-
-        // Require authentication for all other routes
-        return !!token;
-      },
-    },
+  // Redirect authenticated users away from auth pages
+  if (session && pathname.startsWith('/auth/')) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
   }
-);
+
+  // Require authentication for protected routes
+  if (!session && pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/auth/login', req.url));
+  }
+
+  return res;
+}
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
+     * Match all request paths except for:
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|public/).*)",
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };

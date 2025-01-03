@@ -1,17 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus } from "lucide-react";
-import { Project, ProjectCategory, ProjectVisibility } from "@/types/project";
-import { UserRole } from "@/types/user";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Plus, Loader2 } from "lucide-react";
+import { Project } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
 import { NewProjectDialog } from "./new-project-dialog";
 import { useRouter } from "next/navigation";
-import { useProjectStore } from "@/lib/stores/project-store";
 import { useAuth } from "@/lib/auth";
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const MAX_ACTIVE_PROJECTS = 3;
 
@@ -31,9 +30,12 @@ function CreateProjectCard({ onClick }: { onClick: () => void }) {
   );
 }
 
-function ProjectCard({ project }: { project: Project }) {
+function ProjectCard({ project, onClick }: { project: Project; onClick?: () => void }) {
   return (
-    <Card className="group relative hover:shadow-lg transition-shadow">
+    <Card 
+      className="group relative hover:shadow-lg transition-shadow cursor-pointer" 
+      onClick={onClick}
+    >
       <CardContent className="p-4 space-y-4">
         <div className="aspect-video rounded-lg overflow-hidden bg-muted relative">
           {project.image_url && (
@@ -51,19 +53,21 @@ function ProjectCard({ project }: { project: Project }) {
             {project.description}
           </p>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="text-xs">{project.category}</Badge>
-            <Badge variant="secondary" className="text-xs">{project.visibility}</Badge>
+            <Badge variant="outline" className="text-xs capitalize">{project.type}</Badge>
+            <Badge variant="secondary" className="text-xs">{project.category}</Badge>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium">{project.progress}%</span>
-            </div>
-            <Progress value={project.progress} className="h-1" />
-          </div>
-          <div className="pt-2">
+          <div className="pt-2 flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
-              Funding: ${project.current_funding.toLocaleString()} / ${project.funding_goal.toLocaleString()}
+              Created {new Date(project.created_at).toLocaleDateString()}
+            </div>
+            <div className="flex -space-x-2">
+              {project.team_members?.map((member) => (
+                <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
+                  <AvatarFallback>
+                    {member.users?.email?.[0].toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
             </div>
           </div>
         </div>
@@ -74,48 +78,106 @@ function ProjectCard({ project }: { project: Project }) {
 
 export function DashboardProjects() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { user } = useAuth();
-  const projects = useProjectStore((state) => state.projects);
-  
-  // Get user's active projects (projects where they are a member or founder)
-  const activeProjects = projects.filter(project => {
-    if (!user) return false;
+  const supabase = createClientComponentClient();
 
-    return project.founder_id === user.id || 
-           (project.members || []).some(member => 
-             member.userId === user.id && 
-             ['founder', 'cofounder', 'board_member', 'team_member'].includes(member.role || '')
-           );
-  });
+  const loadProjects = async () => {
+    if (!user) return;
 
-  const handleProjectClick = (projectId: string) => {
-    router.push(`/dashboard/${projectId}`);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          team_members (
+            id,
+            role,
+            user_id,
+            users (
+              email
+            )
+          )
+        `)
+        .or(`founder_id.eq.${user.id},team_members.user_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading projects:', error);
+        return;
+      }
+
+      setProjects(data || []);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Calculate remaining project slots
-  const remainingSlots = MAX_ACTIVE_PROJECTS - activeProjects.length;
+  useEffect(() => {
+    loadProjects();
+  }, [user, supabase]);
+
+  // Set up real-time subscription for project updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('projects_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'projects',
+          filter: `founder_id=eq.${user.id}`
+        },
+        () => {
+          loadProjects(); // Reload projects when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  const handleProjectClick = (projectId: string) => {
+    router.push(`/projects/${projectId}`);
+  };
+
+  const remainingSlots = MAX_ACTIVE_PROJECTS - projects.length;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {/* Display active project cards */}
-      {activeProjects.map((project) => (
-        <div
-          key={project.id}
+      {/* Active Projects */}
+      {projects.map((project) => (
+        <ProjectCard 
+          key={project.id} 
+          project={project} 
           onClick={() => handleProjectClick(project.id)}
-          className="cursor-pointer"
-        >
-          <ProjectCard project={project} />
-        </div>
+        />
       ))}
 
-      {/* Display create project card if user has less than 3 active projects */}
+      {/* Create Project Card */}
       {remainingSlots > 0 && (
         <CreateProjectCard onClick={() => setIsDialogOpen(true)} />
       )}
 
-      {/* Fill remaining slots with empty cards */}
-      {Array.from({ length: remainingSlots - 1 }).map((_, index) => (
+      {/* Empty Slots */}
+      {remainingSlots > 1 && Array.from({ length: remainingSlots - 1 }).map((_, index) => (
         <Card key={`empty-${index}`} className="opacity-50">
           <CardContent className="p-6 min-h-[300px] flex items-center justify-center">
             <p className="text-sm text-muted-foreground">Project Slot Available</p>

@@ -23,18 +23,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 interface ProjectFormData {
-  step: number
-  projectImage?: File
-  projectName: string
-  projectType: string
-  projectCategory: string
-  customCategory: string
-  projectDescription: string
-  founderSkills: string
-  founderExperience: string
-  complementarySkills: string
+  projectName: string;
+  projectDescription: string;
+  projectType: 'product' | 'service';
+  projectCategory: string;
+  projectImage?: File;
 }
 
 interface NewProjectDialogProps {
@@ -61,18 +57,15 @@ const digitalServiceCategories = [
 export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const supabase = createClientComponentClient();
   const [formData, setFormData] = React.useState<ProjectFormData>({
-    step: 1,
     projectName: "",
-    projectType: "",
-    projectCategory: "",
-    customCategory: "",
     projectDescription: "",
-    founderSkills: "",
-    founderExperience: "",
-    complementarySkills: "",
+    projectType: "product",
+    projectCategory: "",
   });
-
+  
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,295 +74,188 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
     }
   };
 
-  const handleNext = () => {
-    if (formData.step === 1) {
-      if (!formData.projectName.trim()) {
-        toast({
-          title: "Required Field",
-          description: "Please enter a project name",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!formData.projectType) {
-        toast({
-          title: "Required Field",
-          description: "Please select a project type",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!formData.projectCategory) {
-        toast({
-          title: "Required Field",
-          description: "Please select a project category",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (formData.projectCategory === "Other" && !formData.customCategory.trim()) {
-        toast({
-          title: "Required Field",
-          description: "Please enter a custom category",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    setFormData(prev => ({ ...prev, step: Math.min(prev.step + 1, 3) }));
-  };
-
-  const handleBack = () => {
-    setFormData(prev => ({ ...prev, step: Math.max(prev.step - 1, 1) }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    
     try {
-      onOpenChange(false);
+      // Validate required fields
+      if (!formData.projectName.trim()) {
+        throw new Error('Project name is required');
+      }
+      if (!formData.projectType) {
+        throw new Error('Project type is required');
+      }
+      if (!formData.projectDescription.trim()) {
+        throw new Error('Project description is required');
+      }
+      if (!formData.projectCategory.trim()) {
+        throw new Error('Project category is required');
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session:', session);
+      
+      if (!session) {
+        throw new Error('Please log in again');
+      }
+
+      let image_url = null;
+      
+      // Upload image if provided
+      if (formData.projectImage) {
+        const fileExt = formData.projectImage.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `project-covers/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('projects')
+          .upload(filePath, formData.projectImage);
+
+        if (uploadError) {
+          throw new Error(`Failed to upload image: ${uploadError.message}`);
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('projects')
+          .getPublicUrl(filePath);
+
+        image_url = publicUrl;
+      }
+
+      const projectData = {
+        title: formData.projectName.trim(),
+        description: formData.projectDescription.trim(),
+        type: formData.projectType,
+        category: formData.projectCategory.trim(),
+        founder_id: session.user.id,
+        image_url
+      };
+      
+      console.log('Project data to insert:', projectData);
+
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .insert(projectData)
+        .select('id, title')
+        .single();
+
+      if (projectError) {
+        console.error('Project creation error:', projectError);
+        throw new Error(`Failed to create project: ${projectError.message}`);
+      }
+
+      if (!project) {
+        throw new Error('Project created but failed to retrieve ID');
+      }
+
       toast({
-        title: "Success",
-        description: "Project created successfully",
+        title: "Success!",
+        description: "Project created successfully. Redirecting to project dashboard...",
       });
-      router.push('/dashboard');
+
+      onOpenChange(false);
+      router.push(`/projects/${project.id}`);
+      router.refresh();
     } catch (error) {
+      console.error('Error:', error);
       toast({
         title: "Error",
-        description: "Failed to create project",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : 'Failed to create project',
+        variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
-        <DialogHeader className="pb-4">
-          <DialogTitle className="text-xl">Create New Project</DialogTitle>
+        <DialogHeader>
+          <DialogTitle>Create New Project</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          {formData.step === 1 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm">Project Name</Label>
-                <Input
-                  className="mt-1.5"
-                  value={formData.projectName}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      projectName: e.target.value,
-                    }))
-                  }
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="projectName">Project Name</Label>
+              <Input
+                id="projectName"
+                value={formData.projectName}
+                onChange={(e) => setFormData(prev => ({ ...prev, projectName: e.target.value }))}
+                placeholder="Enter project name"
+              />
+            </div>
 
-              <div>
-                <Label className="text-sm">Project Type</Label>
-                <Select
-                  value={formData.projectType}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, projectType: value }))
-                  }
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select project type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="digital_product">Digital Product</SelectItem>
-                    <SelectItem value="digital_service">Digital Service</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-sm">Category</Label>
-                <Select
-                  value={formData.projectCategory}
-                  onValueChange={(value) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      projectCategory: value,
-                      customCategory: value !== "Other" ? "" : prev.customCategory
-                    }))
-                  }}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(formData.projectType === "digital_product"
-                      ? digitalProductCategories
-                      : digitalServiceCategories
-                    ).map((category) => (
-                      <SelectItem
-                        key={category}
-                        value={category}
-                      >
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {formData.projectCategory === "Other" && (
-                <div>
-                  <Label className="text-sm">Custom Category</Label>
-                  <Input
-                    className="mt-1.5"
-                    placeholder="Enter your custom category"
-                    value={formData.customCategory}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        customCategory: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              )}
-
-              <div>
-                <div className="flex flex-col items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors cursor-pointer"
-                     onClick={() => fileInputRef.current?.click()}>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                  />
-                  <div className="p-3 bg-primary/10 rounded-full">
-                    <Upload className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-base font-medium">Upload Project Image</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formData.projectImage 
-                        ? `Selected: ${formData.projectImage.name}`
-                        : "Drag and drop or click to upload"}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Recommended: Add a suitable cover image to make your project stand out
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                className="w-full text-sm"
-                onClick={handleNext}
+            <div>
+              <Label htmlFor="projectType">Project Type</Label>
+              <Select
+                value={formData.projectType}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, projectType: value as 'product' | 'service' }))}
               >
-                Next
-              </Button>
+                <SelectTrigger id="projectType">
+                  <SelectValue placeholder="Select project type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="product">Digital Product</SelectItem>
+                  <SelectItem value="service">Digital Service</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          {formData.step === 2 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm">Description</Label>
-                <Textarea
-                  className="mt-1.5 text-sm"
-                  value={formData.projectDescription}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      projectDescription: e.target.value,
-                    }))
-                  }
-                  placeholder="Describe your project..."
-                  rows={4}
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm">Your Skills</Label>
-                <Textarea
-                  className="mt-1.5 text-sm"
-                  value={formData.founderSkills}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      founderSkills: e.target.value,
-                    }))
-                  }
-                  placeholder="List your relevant skills..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <Button
-                  variant="outline"
-                  className="w-full text-sm"
-                  onClick={handleBack}
-                >
-                  Back
-                </Button>
-                <Button
-                  className="w-full text-sm"
-                  onClick={handleNext}
-                >
-                  Next
-                </Button>
-              </div>
+            <div>
+              <Label htmlFor="projectCategory">Category</Label>
+              <Input
+                id="projectCategory"
+                value={formData.projectCategory}
+                onChange={(e) => setFormData(prev => ({ ...prev, projectCategory: e.target.value }))}
+                placeholder="Enter project category (e.g., Web Development, Mobile App)"
+              />
             </div>
-          )}
 
-          {formData.step === 3 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm">Your Experience</Label>
-                <Textarea
-                  className="mt-1.5 text-sm"
-                  value={formData.founderExperience}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      founderExperience: e.target.value,
-                    }))
-                  }
-                  placeholder="Describe your relevant experience..."
-                  rows={3}
+            <div>
+              <Label htmlFor="projectDescription">Project Description</Label>
+              <Textarea
+                id="projectDescription"
+                value={formData.projectDescription}
+                onChange={(e) => setFormData(prev => ({ ...prev, projectDescription: e.target.value }))}
+                placeholder="Describe your project..."
+                className="h-32"
+              />
+            </div>
+
+            <div>
+              <Label>Project Image</Label>
+              <div 
+                className="mt-2 flex flex-col items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleFileChange}
                 />
-              </div>
-
-              <div>
-                <Label className="text-sm">Complementary Skills Needed</Label>
-                <Textarea
-                  className="mt-1.5 text-sm"
-                  value={formData.complementarySkills}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      complementarySkills: e.target.value,
-                    }))
-                  }
-                  placeholder="What skills are you looking for in potential collaborators?"
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <Button
-                  variant="outline"
-                  className="w-full text-sm"
-                  onClick={handleBack}
-                >
-                  Back
-                </Button>
-                <Button
-                  className="w-full text-sm"
-                  onClick={handleSubmit}
-                >
-                  Create Project
-                </Button>
+                <div className="p-3 bg-primary/10 rounded-full">
+                  <Upload className="h-5 w-5 text-primary" />
+                </div>
+                <div className="text-center">
+                  <p className="text-base font-medium">Upload Project Image</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formData.projectImage 
+                      ? `Selected: ${formData.projectImage.name}`
+                      : "Drag and drop or click to upload"}
+                  </p>
+                </div>
               </div>
             </div>
-          )}
-        </div>
+
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create Project"}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
