@@ -30,7 +30,7 @@ const SUGGESTED_USERS = [
 
 export function ExploreSidebar() {
   return (
-    <div className="space-y-6">
+    <div className="sticky top-24 space-y-6">
       <div className="relative group">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-hover:text-primary/60 group-focus-within:text-primary" />
         <Input 

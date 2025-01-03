@@ -9,6 +9,20 @@ import { ProjectStats } from "./components/project-stats"
 import { RecentRequests } from "./components/recent-requests"
 import { TaskCalendar } from "./components/task-calendar"
 import { ProjectMilestones } from "./components/project-milestones"
+import { TaskBoard } from "./components/task-board"
+import { TeamPage } from "./components/team"
+import { BudgetPage } from "./components/budget"
+import { QuickActions } from "./components/quick-actions"
+import { ProjectCalendar } from "./components/project-calendar"
+import { ProjectMessages } from "./components/project-messages"
+import { 
+  LayoutDashboard, 
+  KanbanSquare, 
+  Calendar, 
+  MessageSquare, 
+  Users2, 
+  Wallet 
+} from 'lucide-react'
 
 interface Project {
   id: string;
@@ -85,42 +99,48 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
     <div className="flex min-h-screen flex-col">
       <ProjectHeader title={project.title} status={project.status} />
       <Tabs defaultValue="overview" className="flex-1">
-        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+        <TabsList className="w-full justify-center sm:justify-start border-b rounded-none h-auto px-6 sm:px-4 py-0 bg-transparent flex gap-2 sm:gap-0">
           <TabsTrigger 
             value="overview" 
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent flex items-center gap-2 px-4 sm:px-6"
           >
-            Overview
+            <LayoutDashboard className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Overview</span>
           </TabsTrigger>
           <TabsTrigger 
             value="task-board"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent flex items-center gap-2 px-4 sm:px-6"
           >
-            Task Board
+            <KanbanSquare className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Task Board</span>
           </TabsTrigger>
           <TabsTrigger 
             value="calendar"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent flex items-center gap-2 px-4 sm:px-6"
           >
-            Calendar
+            <Calendar className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Calendar</span>
           </TabsTrigger>
           <TabsTrigger 
             value="message"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent flex items-center gap-2 px-4 sm:px-6"
           >
-            Message
+            <MessageSquare className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Message</span>
           </TabsTrigger>
           <TabsTrigger 
             value="team"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent flex items-center gap-2 px-4 sm:px-6"
           >
-            Team
+            <Users2 className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Team</span>
           </TabsTrigger>
           <TabsTrigger 
             value="budget"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent flex items-center gap-2 px-4 sm:px-6"
           >
-            Budget
+            <Wallet className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Budget</span>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="flex-1 space-y-4 p-4 m-0">
@@ -130,25 +150,28 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
               <ProjectStats />
               <RecentRequests />
             </div>
-            <div className="md:w-[300px]">
-              <ProjectMilestones />
+            <div className="md:w-[300px] relative">
+              <div className="sticky top-4">
+                <ProjectMilestones />
+              </div>
             </div>
           </div>
+          <QuickActions />
         </TabsContent>
-        <TabsContent value="task-board" className="flex-1 m-0 p-4">
-          <div className="text-sm text-muted-foreground">Task board coming soon...</div>
+        <TabsContent value="task-board" className="flex-1 m-0 p-0">
+          <TaskBoard />
         </TabsContent>
         <TabsContent value="calendar" className="flex-1 m-0 p-4">
-          <div className="text-sm text-muted-foreground">Calendar view coming soon...</div>
+          <ProjectCalendar />
         </TabsContent>
         <TabsContent value="message" className="flex-1 m-0 p-4">
-          <div className="text-sm text-muted-foreground">Messages coming soon...</div>
+          <ProjectMessages projectId={params.id} />
         </TabsContent>
-        <TabsContent value="team" className="flex-1 m-0 p-4">
-          <div className="text-sm text-muted-foreground">Team management coming soon...</div>
+        <TabsContent value="team" className="flex-1 m-0 p-0">
+          <TeamPage />
         </TabsContent>
-        <TabsContent value="budget" className="flex-1 m-0 p-4">
-          <div className="text-sm text-muted-foreground">Budget overview coming soon...</div>
+        <TabsContent value="budget" className="flex-1 m-0 p-0">
+          <BudgetPage />
         </TabsContent>
       </Tabs>
     </div>
