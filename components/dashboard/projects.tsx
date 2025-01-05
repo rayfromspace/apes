@@ -102,87 +102,69 @@ export function DashboardProjects() {
     }
 
     try {
-      console.log('Loading projects for user:', user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      console.log('Loading projects for user:', session.user.id);
       
       // Get projects where user is founder
       const { data: founderProjects, error: founderError } = await supabase
         .from('projects')
-        .select('*')
-        .eq('founder_id', user.id)
+        .select(`
+          *,
+          team_members (
+            id,
+            role,
+            user_id,
+            users (
+              email
+            )
+          )
+        `)
+        .eq('founder_id', session.user.id)
         .order('created_at', { ascending: false });
 
       console.log('Founder projects:', founderProjects);
+
       if (founderError) {
         console.error('Error loading founder projects:', founderError);
         return;
       }
 
       // Get projects where user is team member
-      const { data: teamMemberships, error: teamError } = await supabase
-        .from('team_members')
-        .select('project_id')
-        .eq('user_id', user.id);
+      const { data: memberProjects, error: memberError } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          team_members (
+            id,
+            role,
+            user_id,
+            users (
+              email
+            )
+          )
+        `)
+        .neq('founder_id', session.user.id)
+        .eq('team_members.user_id', session.user.id)
+        .order('created_at', { ascending: false });
 
-      console.log('Team memberships:', teamMemberships);
-      if (teamError) {
-        console.error('Error loading team memberships:', teamError);
+      console.log('Member projects:', memberProjects);
+
+      if (memberError) {
+        console.error('Error loading member projects:', memberError);
         return;
       }
 
-      // Get the full project details for team projects
-      let teamProjects = [];
-      if (teamMemberships && teamMemberships.length > 0) {
-        const projectIds = teamMemberships.map(tm => tm.project_id);
-        const { data: projects, error: projectsError } = await supabase
-          .from('projects')
-          .select('*')
-          .in('id', projectIds)
-          .order('created_at', { ascending: false });
-
-        console.log('Team projects:', projects);
-        if (projectsError) {
-          console.error('Error loading team project details:', projectsError);
-        } else {
-          teamProjects = projects || [];
-        }
-      }
-
-      // After getting the projects, fetch team members for all projects
-      const allProjects = [...(founderProjects || []), ...teamProjects];
-      const projectIds = allProjects.map(p => p.id);
+      // Combine and deduplicate projects
+      const allProjects = [...(founderProjects || []), ...(memberProjects || [])];
+      const uniqueProjects = Array.from(new Map(allProjects.map(p => [p.id, p])).values());
       
-      // Get team members for all projects
-      const { data: allTeamMembers, error: teamMembersError } = await supabase
-        .from('team_members')
-        .select(`
-          id,
-          user_id,
-          role,
-          project_id,
-          user:profiles!team_members_user_id_fkey (
-            id,
-            email,
-            full_name,
-            avatar_url
-          )
-        `)
-        .in('project_id', projectIds);
-
-      if (teamMembersError) {
-        console.error('Error loading team members:', teamMembersError);
-      }
-
-      // Combine projects with their team members
-      const projectsWithTeamMembers = allProjects.map(project => ({
-        ...project,
-        team_members: allTeamMembers?.filter(tm => tm.project_id === project.id) || []
-      }));
-
-      const uniqueProjects = Array.from(
-        new Map(projectsWithTeamMembers.map(project => [project.id, project])).values()
-      );
-      
-      console.log('Final projects:', uniqueProjects);
+      console.log('All projects:', uniqueProjects);
       setProjects(uniqueProjects);
     } catch (error) {
       console.error('Error:', error);
@@ -194,15 +176,54 @@ export function DashboardProjects() {
     }
   };
 
+  // Handle dialog close and project refresh
+  const handleDialogChange = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      loadProjects();
+    }
+  };
+
   useEffect(() => {
     loadProjects();
-    // Set up polling interval
-    const interval = setInterval(() => {
-      loadProjects();
-    }, POLLING_INTERVAL);
+  }, [user]);
 
-    return () => clearInterval(interval);
-  }, [user, supabase]);
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('project_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'projects',
+        },
+        () => {
+          console.log('Project change detected, reloading...');
+          loadProjects();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'team_members',
+        },
+        () => {
+          console.log('Team member change detected, reloading...');
+          loadProjects();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   if (loading) {
     return (
@@ -277,7 +298,7 @@ export function DashboardProjects() {
 
         <NewProjectDialog 
           open={isDialogOpen} 
-          onOpenChange={setIsDialogOpen}
+          onOpenChange={handleDialogChange}
           onProjectCreated={handleProjectCreated}
         />
       </div>

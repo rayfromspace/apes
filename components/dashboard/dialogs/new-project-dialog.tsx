@@ -69,11 +69,17 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData(prev => ({ ...prev, projectImage: e.target.files![0] }));
+  // Reset form when dialog opens/closes
+  React.useEffect(() => {
+    if (!open) {
+      setFormData({
+        projectName: "",
+        projectDescription: "",
+        projectType: "product",
+        projectCategory: "",
+      });
     }
-  };
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +101,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
       }
 
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session:', session);
       
       if (!session) {
         throw new Error('Please log in again');
@@ -124,16 +129,19 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         image_url = publicUrl;
       }
 
+      // Create project with status and visibility
       const projectData = {
         title: formData.projectName.trim(),
         description: formData.projectDescription.trim(),
         type: formData.projectType,
         category: formData.projectCategory.trim(),
         founder_id: session.user.id,
-        image_url
+        image_url,
+        status: 'active',
+        visibility: 'public',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
-      
-      console.log('Project data to insert:', projectData);
 
       const { data: project, error: projectError } = await supabase
         .from('projects')
@@ -150,6 +158,19 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         throw new Error('Project created but failed to retrieve ID');
       }
 
+      // Create initial team member entry for founder
+      const { error: teamError } = await supabase
+        .from('team_members')
+        .insert({
+          project_id: project.id,
+          user_id: session.user.id,
+          role: 'founder'
+        });
+
+      if (teamError) {
+        console.error('Team member creation error:', teamError);
+      }
+
       // Notify parent component about the new project
       onProjectCreated?.(project);
 
@@ -158,9 +179,15 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         description: "Project created successfully. Redirecting to project dashboard...",
       });
 
+      // Close dialog first
       onOpenChange(false);
-      router.push(`/projects/${project.id}`);
-      router.refresh();
+
+      // Short delay to ensure dialog closes smoothly
+      setTimeout(() => {
+        router.push(`/projects/${project.id}`);
+        router.refresh();
+      }, 100);
+
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -170,6 +197,12 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFormData(prev => ({ ...prev, projectImage: e.target.files![0] }));
     }
   };
 
