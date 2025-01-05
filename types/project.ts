@@ -31,7 +31,7 @@ export interface TeamMember {
   joined_at: string;
   // Temporarily commented out
   // permissions: string[];
-  // user: User;
+  user: User;
 }
 
 // Temporarily commented out until needed

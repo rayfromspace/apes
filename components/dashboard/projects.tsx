@@ -107,7 +107,20 @@ export function DashboardProjects() {
       // Get projects where user is founder
       const { data: founderProjects, error: founderError } = await supabase
         .from('projects')
-        .select('*')
+        .select(`
+          *,
+          team_members(
+            id,
+            user_id,
+            role,
+            user:profiles(
+              id,
+              email,
+              full_name,
+              avatar_url
+            )
+          )
+        `)
         .eq('founder_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -119,7 +132,22 @@ export function DashboardProjects() {
       // Get projects where user is team member
       const { data: teamProjects, error: teamError } = await supabase
         .from('team_members')
-        .select('project_id')
+        .select(`
+          project:projects(
+            *,
+            team_members(
+              id,
+              user_id,
+              role,
+              user:profiles(
+                id,
+                email,
+                full_name,
+                avatar_url
+              )
+            )
+          )
+        `)
         .eq('user_id', user.id);
 
       if (teamError) {
@@ -127,26 +155,15 @@ export function DashboardProjects() {
         return;
       }
 
-      // Get the full project details for team projects
-      let teamProjectsDetails = [];
-      if (teamProjects && teamProjects.length > 0) {
-        const projectIds = teamProjects.map(tm => tm.project_id);
-        const { data: projects, error: projectsError } = await supabase
-          .from('projects')
-          .select('*')
-          .in('id', projectIds)
-          .order('created_at', { ascending: false });
-
-        if (projectsError) {
-          console.error('Error loading team project details:', projectsError);
-        } else {
-          teamProjectsDetails = projects || [];
-        }
-      }
-
       // Combine and deduplicate projects
-      const allProjects = [...(founderProjects || []), ...teamProjectsDetails];
-      const uniqueProjects = Array.from(new Map(allProjects.map(project => [project.id, project])).values());
+      const allProjects = [
+        ...(founderProjects || []),
+        ...(teamProjects?.map(tp => tp.project) || [])
+      ];
+      
+      const uniqueProjects = Array.from(
+        new Map(allProjects.map(project => [project.id, project])).values()
+      );
       
       console.log('Loaded projects:', uniqueProjects);
       setProjects(uniqueProjects);

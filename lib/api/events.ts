@@ -62,6 +62,7 @@ const DEMO_EVENTS: Event[] = [
     title: "Sprint Deadline",
     description: "Complete all sprint tasks",
     startTime: "17:00",
+    duration: 60,
     date: "2024-01-05",
     type: "deadline",
     projectId: "project-1",
@@ -106,7 +107,7 @@ export async function getUserEvents(userId: string): Promise<Event[]> {
       type: event.type,
       projectId: event.project?.id || event.project_id,
       projectName: event.project?.name || 'Default Project',
-      attendees: event.attendees?.map(a => ({
+      attendees: event.attendees?.map((a: any) => ({
         id: a.user.id,
         name: a.user.full_name,
         avatar: a.user.avatar_url,

@@ -3,7 +3,7 @@ export interface Event {
   title: string;
   description?: string;
   startTime: string;
-  duration: string; // in minutes
+  duration: number; // in minutes
   date: string;
   type: 'meeting' | 'review' | 'call' | 'deadline' | 'other';
   projectId: string;
