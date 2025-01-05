@@ -17,7 +17,7 @@ import {
   Wallet,
   BarChart,
 } from "lucide-react";
-import { CreatePostDialog } from "./create-post-dialog";
+import { CreatePostDialog } from "./dialogs/create-post-dialog";
 
 interface QuickAction {
   id: string;
@@ -97,7 +97,11 @@ export function QuickActions() {
                 key={action.id}
                 variant="outline"
                 className="h-auto flex-col items-start gap-2 p-4 hover:bg-muted/50"
-                onClick={action.href ? () => router.push(action.href) : undefined}
+                onClick={
+                  action.href
+                    ? () => router.push(action.href || "/")
+                    : undefined
+                }
               >
                 <div className="flex w-full items-center gap-2">
                   <Icon className={cn("h-5 w-5", action.color)} />
@@ -111,9 +115,7 @@ export function QuickActions() {
 
             if (action.id === "new-post") {
               return (
-                <CreatePostDialog key={action.id}>
-                  {button}
-                </CreatePostDialog>
+                <CreatePostDialog key={action.id}>{button}</CreatePostDialog>
               );
             }
 

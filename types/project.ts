@@ -20,6 +20,7 @@ export interface Project {
   image_url?: string;
   created_at: string;
   updated_at: string;
+  team_members: TeamMember[];
 }
 
 export interface TeamMember {

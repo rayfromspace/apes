@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, Loader2 } from "lucide-react";
 import { Project } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
-import { NewProjectDialog } from "./new-project-dialog";
+import { NewProjectDialog } from "./dialogs/new-project-dialog";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -61,7 +61,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
               Created {new Date(project.created_at).toLocaleDateString()}
             </div>
             <div className="flex -space-x-2">
-              {project.team_members?.map((member) => (
+              {project.team_members?.map((member: any) => (
                 <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
                   <AvatarFallback>
                     {member.users?.email?.[0].toUpperCase()}

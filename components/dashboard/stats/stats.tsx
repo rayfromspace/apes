@@ -21,11 +21,11 @@ import {
 } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { GoalsDialog } from "./goals-dialog";
-import { ConnectionsDialog } from "./connections-dialog";
-import { DeadlinesDialog } from "./deadlines-dialog";
-import { TasksDialog } from "./tasks-dialog";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { GoalsDialog } from "../dialogs/goals-dialog";
+import { ConnectionsDialog } from "../dialogs/connections-dialog";
+import { DeadlinesDialog } from "../dialogs/deadlines-dialog";
+import { TasksDialog } from "../dialogs/tasks-dialog";
 
 // Demo data for hover states
 const ACTIVE_PROJECTS = [

@@ -1,7 +1,7 @@
 'use client';
 
-import ClientLayout from '@/components/client-layout';
-import { ThemeProvider } from '@/components/theme-provider';
+import ClientLayout from '@/components/layout/client-layout';
+import { ThemeProvider } from '@/components/theme/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export default function Template({

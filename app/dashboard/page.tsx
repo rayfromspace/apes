@@ -3,11 +3,11 @@
 import { useAuth } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { DashboardProjects } from "@/components/dashboard/projects";
-import { DashboardStats } from "@/components/dashboard/stats";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { Notifications } from "@/components/dashboard/notifications";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { Schedule } from "@/components/dashboard/schedule";
+import { DashboardStats } from "@/components/dashboard/stats/stats";
 
 export default function DashboardPage() {
   const { user } = useAuth();

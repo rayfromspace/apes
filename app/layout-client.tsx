@@ -1,6 +1,6 @@
 "use client";
 
-import { ThemeProvider } from "@/providers/theme-provider";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { TestAuthProvider } from "@/providers/test-auth-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

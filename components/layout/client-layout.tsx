@@ -1,9 +1,9 @@
 "use client";
 
-import Navigation from "@/components/navigation";
 import { useAuth } from "@/lib/auth";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import Navigation from "./navigation";
 
 export default function ClientLayout({
   children,
