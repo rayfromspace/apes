@@ -117,6 +117,7 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -150,16 +151,23 @@ export default function ProfilePage() {
   };
 
   const onSubmit = async (data: ProfileFormValues) => {
-    setIsLoading(true);
     try {
-      // TODO: Implement profile update with Supabase
+      setIsSubmitting(true);
       const formData = new FormData();
+
+      // Append all form fields
       Object.entries(data).forEach(([key, value]) => {
-        if (value) {
+        if (value !== undefined && value !== null) {
           formData.append(key, value.toString());
         }
       });
 
+      // Append the current avatar URL if no new file is selected
+      if (!avatarFile && user?.avatar) {
+        formData.append('avatarUrl', user.avatar);
+      }
+
+      // Append avatar file if selected
       if (avatarFile) {
         formData.append('avatar', avatarFile);
       }
@@ -171,21 +179,28 @@ export default function ProfilePage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update profile');
       }
+
+      const result = await response.json();
+      
+      // Update local profile state
+      // setProfile(result.profile);
 
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
       });
     } catch (error) {
+      console.error('Profile update error:', error);
       toast({
-        variant: "destructive",
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to update profile",
+        variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -571,8 +586,8 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading && (
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
                     Save Changes
