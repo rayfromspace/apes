@@ -36,6 +36,7 @@ interface ProjectFormData {
 interface NewProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onProjectCreated?: (project: any) => void;
 }
 
 const digitalProductCategories = [
@@ -54,7 +55,7 @@ const digitalServiceCategories = [
   "Data Analysis", "Virtual Event Planning", "Remote Therapy or Counseling", "Other"
 ];
 
-export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
+export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewProjectDialogProps) {
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClientComponentClient();
@@ -148,6 +149,9 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
       if (!project) {
         throw new Error('Project created but failed to retrieve ID');
       }
+
+      // Notify parent component about the new project
+      onProjectCreated?.(project);
 
       toast({
         title: "Success!",

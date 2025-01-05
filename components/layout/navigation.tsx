@@ -101,6 +101,7 @@ export default function Navigation() {
 
   const navigationItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Projects", href: "/projects", icon: Briefcase },
     { name: "Explore", href: "/explore", icon: Search },
     { name: "Value Stake", href: "/dashboard/value-stake", icon: TrendingUp },
     { name: "Learning Pool", href: "/learning", icon: GraduationCap },

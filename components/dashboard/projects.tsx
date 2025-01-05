@@ -4,15 +4,18 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, RefreshCw, Briefcase } from "lucide-react";
 import { Project } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
 import { NewProjectDialog } from './dialogs/new-project-dialog';
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 const MAX_ACTIVE_PROJECTS = 3;
+const POLLING_INTERVAL = 60000; // 1 minute in milliseconds
 
 function CreateProjectCard({ onClick }: { onClick: () => void }) {
   return (
@@ -36,35 +39,42 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
       className="group relative hover:shadow-lg transition-shadow cursor-pointer" 
       onClick={onClick}
     >
-      <CardContent className="p-4 space-y-4">
-        <div className="aspect-video rounded-lg overflow-hidden bg-muted relative">
-          {project.image_url && (
-            <img
+      <CardContent className="p-0">
+        <div className="aspect-video w-full relative overflow-hidden">
+          {project.image_url ? (
+            <Image
               src={project.image_url}
               alt={project.title}
-              className="object-cover w-full h-full"
+              fill
+              className="object-cover transition-transform group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+              <Briefcase className="h-12 w-12 text-primary/40" />
+            </div>
           )}
-          <div className="absolute inset-0 bg-black/20" />
         </div>
-        <div className="space-y-2">
-          <h3 className="font-semibold text-lg truncate">{project.title}</h3>
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {project.description}
-          </p>
-          <div className="flex items-center space-x-2">
+        <div className="p-4 space-y-4">
+          <div>
+            <h3 className="font-semibold text-lg truncate">{project.title}</h3>
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {project.description}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs capitalize">{project.type}</Badge>
             <Badge variant="secondary" className="text-xs">{project.category}</Badge>
           </div>
-          <div className="pt-2 flex justify-between items-center">
+          <div className="flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
               Created {new Date(project.created_at).toLocaleDateString()}
             </div>
             <div className="flex -space-x-2">
-              {project.team_members?.map((member: any) => (
+              {project.team_members?.map((member) => (
                 <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
                   <AvatarFallback>
-                    {member.users?.email?.[0].toUpperCase()}
+                    {member.user?.email?.[0]?.toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
               ))}
@@ -80,70 +90,84 @@ export function DashboardProjects() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
   const supabase = createClientComponentClient();
 
-  const loadProjects = async () => {
+  const loadProjects = async (isManualRefresh = false) => {
     if (!user) return;
+    if (isManualRefresh) {
+      setRefreshing(true);
+    }
 
     try {
-      const { data, error } = await supabase
+      console.log('Loading projects for user:', user.id);
+      
+      // Get projects where user is founder
+      const { data: founderProjects, error: founderError } = await supabase
         .from('projects')
-        .select(`
-          *,
-          team_members (
-            id,
-            role,
-            user_id,
-            users (
-              email
-            )
-          )
-        `)
-        .or(`founder_id.eq.${user.id},team_members.user_id.eq.${user.id}`)
+        .select('*')
+        .eq('founder_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error loading projects:', error);
+      if (founderError) {
+        console.error('Error loading founder projects:', founderError);
         return;
       }
 
-      setProjects(data || []);
+      // Get projects where user is team member
+      const { data: teamProjects, error: teamError } = await supabase
+        .from('team_members')
+        .select('project_id')
+        .eq('user_id', user.id);
+
+      if (teamError) {
+        console.error('Error loading team projects:', teamError);
+        return;
+      }
+
+      // Get the full project details for team projects
+      let teamProjectsDetails = [];
+      if (teamProjects && teamProjects.length > 0) {
+        const projectIds = teamProjects.map(tm => tm.project_id);
+        const { data: projects, error: projectsError } = await supabase
+          .from('projects')
+          .select('*')
+          .in('id', projectIds)
+          .order('created_at', { ascending: false });
+
+        if (projectsError) {
+          console.error('Error loading team project details:', projectsError);
+        } else {
+          teamProjectsDetails = projects || [];
+        }
+      }
+
+      // Combine and deduplicate projects
+      const allProjects = [...(founderProjects || []), ...teamProjectsDetails];
+      const uniqueProjects = Array.from(new Map(allProjects.map(project => [project.id, project])).values());
+      
+      console.log('Loaded projects:', uniqueProjects);
+      setProjects(uniqueProjects);
     } catch (error) {
       console.error('Error:', error);
     } finally {
       setLoading(false);
+      if (isManualRefresh) {
+        setRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
     loadProjects();
-  }, [user, supabase]);
+    // Set up polling interval
+    const interval = setInterval(() => {
+      loadProjects();
+    }, POLLING_INTERVAL);
 
-  // Set up real-time subscription for project updates
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('projects_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'projects',
-          filter: `founder_id=eq.${user.id}`
-        },
-        () => {
-          loadProjects(); // Reload projects when changes occur
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(interval);
   }, [user, supabase]);
 
   if (loading) {
@@ -158,37 +182,71 @@ export function DashboardProjects() {
     router.push(`/projects/${projectId}`);
   };
 
+  const handleProjectCreated = (project: Project) => {
+    setProjects(prevProjects => [project, ...prevProjects]);
+  };
+
   const remainingSlots = MAX_ACTIVE_PROJECTS - projects.length;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {/* Active Projects */}
-      {projects.map((project) => (
-        <ProjectCard 
-          key={project.id} 
-          project={project} 
-          onClick={() => handleProjectClick(project.id)}
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold">Your Projects</h2>
+          <p className="text-sm text-muted-foreground">
+            Create and manage your projects
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => loadProjects(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/projects')}
+          >
+            View All
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Active Projects */}
+        {projects.map((project) => (
+          <ProjectCard 
+            key={project.id} 
+            project={project} 
+            onClick={() => handleProjectClick(project.id)}
+          />
+        ))}
+
+        {/* Create Project Card */}
+        {remainingSlots > 0 && (
+          <CreateProjectCard onClick={() => setIsDialogOpen(true)} />
+        )}
+
+        {/* Empty Slots */}
+        {remainingSlots > 1 && Array.from({ length: remainingSlots - 1 }).map((_, index) => (
+          <Card key={`empty-${index}`} className="opacity-50">
+            <CardContent className="p-6 min-h-[300px] flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">Project Slot Available</p>
+            </CardContent>
+          </Card>
+        ))}
+
+        <NewProjectDialog 
+          open={isDialogOpen} 
+          onOpenChange={setIsDialogOpen}
+          onProjectCreated={handleProjectCreated}
         />
-      ))}
-
-      {/* Create Project Card */}
-      {remainingSlots > 0 && (
-        <CreateProjectCard onClick={() => setIsDialogOpen(true)} />
-      )}
-
-      {/* Empty Slots */}
-      {remainingSlots > 1 && Array.from({ length: remainingSlots - 1 }).map((_, index) => (
-        <Card key={`empty-${index}`} className="opacity-50">
-          <CardContent className="p-6 min-h-[300px] flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">Project Slot Available</p>
-          </CardContent>
-        </Card>
-      ))}
-
-      <NewProjectDialog 
-        open={isDialogOpen} 
-        onOpenChange={setIsDialogOpen}
-      />
+      </div>
     </div>
   );
 }
