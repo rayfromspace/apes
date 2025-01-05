@@ -15,6 +15,7 @@ import { BudgetPage } from "./components/budget"
 import { QuickActions } from "./components/quick-actions"
 import { ProjectCalendar } from "./components/project-calendar"
 import { ProjectMessages } from "./components/project-messages"
+import { DocumentUpload } from '@/components/projects/documents/document-upload'
 import { 
   LayoutDashboard, 
   KanbanSquare, 

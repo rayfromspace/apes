@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, Loader2 } from "lucide-react";
 import { Project } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
-import { NewProjectDialog } from "./dialogs/new-project-dialog";
+import { NewProjectDialog } from './dialogs/new-project-dialog';
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';

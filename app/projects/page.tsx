@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
-import { NewProjectDialog } from '@/components/dashboard/new-project-dialog'
+import { NewProjectDialog } from '@/components/dashboard/dialogs/new-project-dialog'
+import { ProjectList } from '@/components/projects/list/project-list'
 
 interface Project {
   id: string
