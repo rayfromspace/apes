@@ -36,8 +36,8 @@ import { useAuth } from "@/lib/auth";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ProjectCard } from "@/components/projects/project-card";
 import { PostCard } from "@/components/explore/post-card";
+import { ProjectCard } from "@/components/projects/list";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),

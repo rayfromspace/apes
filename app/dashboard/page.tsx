@@ -26,20 +26,14 @@ export default function DashboardPage() {
           <div className="space-y-6 lg:col-span-2">
             {/* Stats Section */}
             <DashboardStats showProjectStats={false} />
-            
-            {/* Active Projects Section */}
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">Active Projects</h2>
-                <p className="text-muted-foreground">Your ongoing projects and collaborations</p>
-              </div>
-              <DashboardProjects />
-            </div>
+
+            {/* Active Projects Section */}x
+            <DashboardProjects />
 
             {/* Quick Actions */}
             <QuickActions />
           </div>
-          
+
           {/* Sidebar - Third Column */}
           <div className="space-y-6">
             <Notifications />
