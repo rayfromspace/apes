@@ -2,7 +2,7 @@
 
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
-import { TestAuthProvider } from "@/providers/test-auth-provider";
+import { AuthProvider } from "@/components/providers/auth-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const queryClient = new QueryClient();
@@ -20,10 +20,10 @@ export function RootLayoutClient({
         enableSystem
         disableTransitionOnChange
       >
-        <TestAuthProvider>
+        <AuthProvider>
           {children}
           <Toaster />
-        </TestAuthProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

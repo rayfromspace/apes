@@ -1,128 +1,156 @@
-import { apiClient, ApiResponse } from './api-client';
-
-export interface Project {
-  id: string;
-  title: string;
-  description: string;
-  type: 'product' | 'service';
-  category: string;
-  status: 'draft' | 'active' | 'funding' | 'completed' | 'cancelled';
-  visibility: 'private' | 'public' | 'unlisted';
-  funding_goal: number;
-  current_funding: number;
-  team_size: number;
-  tags: string[];
-  milestones: any[];
-  team_members: {
-    id: string;
-    role: string;
-    joined_at: string;
-  }[];
-  founder_id: string;
-  image_url?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateProjectData {
-  title: string;
-  description: string;
-  type: 'product' | 'service';
-  category: string;
-  founder_id: string;
-  status?: 'draft' | 'active' | 'funding' | 'completed' | 'cancelled';
-  visibility?: 'private' | 'public' | 'unlisted';
-  funding_goal?: number;
-  current_funding?: number;
-  team_size?: number;
-  tags?: string[];
-  milestones?: any[];
-  team_members?: {
-    id: string;
-    role: string;
-    joined_at: string;
-  }[];
-  image_url?: string;
-}
-
-export interface UpdateProjectData extends Partial<CreateProjectData> {}
-
-export interface ProjectDocument {
-  id: string;
-  name: string;
-  url: string;
-  type: string;
-  size: number;
-  created_at: string;
-}
+import { supabase } from '@/lib/supabase/client';
+import { Project, CreateProjectData, UpdateProjectData } from '@/types/project';
 
 export class ProjectApi {
-  private static readonly BASE_PATH = '/api/projects';
-
   // Create a new project
-  static async createProject(data: CreateProjectData): Promise<ApiResponse<Project>> {
-    return apiClient.post(this.BASE_PATH, data);
+  static async createProject(data: CreateProjectData): Promise<Project> {
+    const { data: project, error } = await supabase
+      .from('projects')
+      .insert([data])
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!project) throw new Error('Failed to create project');
+
+    return project;
   }
 
   // Get project by ID
-  static async getProject(id: string): Promise<ApiResponse<Project>> {
-    return apiClient.get(`${this.BASE_PATH}/${id}`);
+  static async getProject(id: string): Promise<Project> {
+    const { data: project, error } = await supabase
+      .from('projects')
+      .select('*, team_members(*), milestones(*)')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    if (!project) throw new Error('Project not found');
+
+    return project;
   }
 
   // Update project
-  static async updateProject(id: string, data: UpdateProjectData): Promise<ApiResponse<Project>> {
-    return apiClient.patch(`${this.BASE_PATH}/${id}`, data);
+  static async updateProject(id: string, data: UpdateProjectData): Promise<Project> {
+    const { data: project, error } = await supabase
+      .from('projects')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!project) throw new Error('Failed to update project');
+
+    return project;
   }
 
   // Delete project
-  static async deleteProject(projectId: string): Promise<ApiResponse<void>> {
-    return apiClient.delete(`${this.BASE_PATH}/${projectId}`);
+  static async deleteProject(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   }
 
-  // List user's projects
+  // List projects with filters
   static async listProjects(params?: {
     status?: string;
     category?: string;
     visibility?: string;
-  }): Promise<ApiResponse<Project[]>> {
-    return apiClient.get(this.BASE_PATH, { params });
+    userId?: string;
+  }): Promise<Project[]> {
+    let query = supabase
+      .from('projects')
+      .select('*, team_members(*)');
+
+    if (params?.status) {
+      query = query.eq('status', params.status);
+    }
+    if (params?.category) {
+      query = query.eq('category', params.category);
+    }
+    if (params?.visibility) {
+      query = query.eq('visibility', params.visibility);
+    }
+    if (params?.userId) {
+      query = query.eq('founder_id', params.userId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   // Upload project document
-  static async uploadDocument(
-    projectId: string,
-    file: File
-  ): Promise<ApiResponse<ProjectDocument>> {
-    const formData = new FormData();
-    formData.append('file', file);
+  static async uploadDocument(projectId: string, file: File): Promise<string> {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${projectId}/${crypto.randomUUID()}.${fileExt}`;
 
-    return apiClient.post<ProjectDocument>(
-      `${this.BASE_PATH}/${projectId}/documents`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
+    const { error: uploadError } = await supabase.storage
+      .from('project-documents')
+      .upload(fileName, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('project-documents')
+      .getPublicUrl(fileName);
+
+    const { error: dbError } = await supabase
+      .from('project_documents')
+      .insert([
+        {
+          project_id: projectId,
+          file_name: file.name,
+          file_path: fileName,
+          file_type: file.type,
+          size: file.size,
+          url: publicUrl
+        }
+      ]);
+
+    if (dbError) throw dbError;
+    return publicUrl;
   }
 
   // List project documents
-  static async listDocuments(
-    projectId: string
-  ): Promise<ApiResponse<ProjectDocument[]>> {
-    return apiClient.get<ProjectDocument[]>(
-      `${this.BASE_PATH}/${projectId}/documents`
-    );
+  static async listDocuments(projectId: string) {
+    const { data, error } = await supabase
+      .from('project_documents')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   // Delete project document
-  static async deleteDocument(
-    projectId: string,
-    documentId: string
-  ): Promise<ApiResponse<void>> {
-    return apiClient.delete(
-      `${this.BASE_PATH}/${projectId}/documents/${documentId}`
-    );
+  static async deleteDocument(projectId: string, documentId: string): Promise<void> {
+    const { data: doc, error: fetchError } = await supabase
+      .from('project_documents')
+      .select('file_path')
+      .eq('id', documentId)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!doc) throw new Error('Document not found');
+
+    const { error: storageError } = await supabase.storage
+      .from('project-documents')
+      .remove([doc.file_path]);
+
+    if (storageError) throw storageError;
+
+    const { error: dbError } = await supabase
+      .from('project_documents')
+      .delete()
+      .eq('id', documentId);
+
+    if (dbError) throw dbError;
   }
 }

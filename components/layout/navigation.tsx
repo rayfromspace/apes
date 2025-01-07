@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth/store";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/theme/mode-toggle";
 import {
@@ -42,58 +42,39 @@ export default function Navigation() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
 
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
   const handleLogout = async () => {
     try {
       await logout(router);
-      console.log("Redirected to login page after logout.");
     } catch (error) {
-      console.error("Error during logout:", error);
+      console.error("Error logging out:", error);
     }
   };
 
-  // Initialize the state from localStorage only after mounting
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored !== null) {
-        setIsExpanded(JSON.parse(stored));
-      } else {
-        const shouldExpand = window.innerWidth >= SIDEBAR_BREAKPOINT;
-        setIsExpanded(shouldExpand);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(shouldExpand));
-      }
-      setMounted(true);
+    setMounted(true);
+    const storedValue = localStorage.getItem(STORAGE_KEY);
+    if (storedValue !== null) {
+      setIsExpanded(JSON.parse(storedValue));
     }
   }, []);
 
-  // Handle window resize
   useEffect(() => {
-    const handleResize = () => {
-      if (typeof window !== "undefined") {
-        const shouldExpand = window.innerWidth >= SIDEBAR_BREAKPOINT;
-        setIsExpanded(shouldExpand);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(shouldExpand));
-      }
-    };
-
-    if (mounted) {
-      window.addEventListener("resize", handleResize);
-      return () => window.removeEventListener("resize", handleResize);
+    if (!isAuthenticated && !pathname.startsWith('/auth')) {
+      router.push('/auth/login');
     }
-  }, [mounted]);
+  }, [isAuthenticated, pathname, router]);
 
-  const toggleExpanded = () => {
-    const newState = !isExpanded;
+  const toggleSidebar = () => {
     setIsRotating(true);
-    setIsExpanded(newState);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
-    // Reset rotation after animation completes
-    setTimeout(() => setIsRotating(false), 300);
+    setIsExpanded(!isExpanded);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(!isExpanded));
   };
+
+  if (!mounted || !isAuthenticated) return null;
 
   const handleNavigation = (href: string) => {
     router.push(href);
@@ -101,7 +82,6 @@ export default function Navigation() {
 
   const navigationItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Projects", href: "/projects", icon: Briefcase },
     { name: "Explore", href: "/explore", icon: Search },
     { name: "Value Stake", href: "/dashboard/value-stake", icon: TrendingUp },
     { name: "Learning Pool", href: "/learning", icon: GraduationCap },
@@ -123,7 +103,7 @@ export default function Navigation() {
       {/* Header */}
       <div className="flex h-16 items-center justify-between px-4 border-b">
         <button
-          onClick={toggleExpanded}
+          onClick={toggleSidebar}
           className="inline-flex items-center gap-3"
         >
           <div className="relative h-8 w-8 hover:opacity-80 transition-opacity">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,109 +12,165 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-
-interface Notification {
-  id: string;
-  title: string;
-  description: string;
-  type: "info" | "warning" | "success" | "error";
-  timestamp: string;
-  read: boolean;
-  actionUrl?: string;
-}
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useAuth } from "@/lib/auth/store";
+import { Notification } from "@/types/activity";
+import { formatDistanceToNow } from 'date-fns';
 
 export function Notifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      title: "New Investment",
-      description: "Your project 'DeFi Platform' received a new investment of 1000 USDC",
-      type: "success",
-      timestamp: "2024-01-20T10:30:00Z",
-      read: false,
-      actionUrl: "/projects/defi-1",
-    },
-    {
-      id: "2",
-      title: "Milestone Approaching",
-      description: "Project milestone 'Beta Launch' is due in 3 days",
-      type: "warning",
-      timestamp: "2024-01-20T09:15:00Z",
-      read: false,
-      actionUrl: "/projects/defi-1/milestones",
-    },
-    // Add more notifications as needed
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClientComponentClient();
+  const { user } = useAuth();
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === id
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
-  };
+  const fetchNotifications = async () => {
+    if (!user) return;
 
-  const removeNotification = (id: string) => {
-    setNotifications((prev) =>
-      prev.filter((notification) => notification.id !== id)
-    );
-  };
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-  const getTypeStyles = (type: Notification["type"]) => {
-    switch (type) {
-      case "success":
-        return "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800";
-      case "warning":
-        return "bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800";
-      case "error":
-        return "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800";
-      default:
-        return "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800";
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const markAsRead = async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === id
+            ? { ...notification, read: true }
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const deleteNotification = async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      setNotifications((prev) =>
+        prev.filter((notification) => notification.id !== id)
+      );
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('notifications_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user?.id}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Notifications</CardTitle>
+          <CardDescription>Stay updated with your projects</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="h-5 w-40 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-60 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="space-x-2">
+                  <div className="h-8 w-8 bg-muted rounded animate-pulse inline-block" />
+                  <div className="h-8 w-8 bg-muted rounded animate-pulse inline-block" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-medium">Notifications</CardTitle>
-        <Bell className="h-4 w-4 text-muted-foreground" />
+      <CardHeader>
+        <CardTitle>Notifications</CardTitle>
+        <CardDescription>Stay updated with your projects</CardDescription>
       </CardHeader>
-      <CardDescription className="px-6">
-        Stay updated with your project activities
-      </CardDescription>
       <CardContent>
-        <ScrollArea className="h-[300px] pr-4">
-          <div className="space-y-4">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={cn(
-                  "relative rounded-lg border p-4 transition-colors",
-                  getTypeStyles(notification.type),
-                  notification.read && "opacity-60"
-                )}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h4 className="font-medium">{notification.title}</h4>
-                    <p className="mt-1 text-sm text-muted-foreground">
+        <ScrollArea className="h-[300px]">
+          <div className="space-y-4 pr-4">
+            {notifications.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground">
+                No notifications
+              </div>
+            ) : (
+              notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={cn(
+                    "flex items-start justify-between space-x-4",
+                    !notification.read && "font-medium"
+                  )}
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm">{notification.title}</p>
+                    <p className="text-xs text-muted-foreground">
                       {notification.description}
                     </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {new Date(notification.timestamp).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "numeric",
-                        }
-                      )}
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="space-x-2">
                     {!notification.read && (
                       <Button
                         variant="ghost"
@@ -122,19 +178,21 @@ export function Notifications() {
                         onClick={() => markAsRead(notification.id)}
                       >
                         <Check className="h-4 w-4" />
+                        <span className="sr-only">Mark as read</span>
                       </Button>
                     )}
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => removeNotification(notification.id)}
+                      onClick={() => deleteNotification(notification.id)}
                     >
                       <X className="h-4 w-4" />
+                      <span className="sr-only">Delete</span>
                     </Button>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </ScrollArea>
       </CardContent>

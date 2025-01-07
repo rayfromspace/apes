@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -20,9 +19,6 @@ export default function LoginPage() {
   const onSubmit = async (data: { email: string; password: string }) => {
     setIsLoading(true);
     try {
-      console.log("Attempting to log in with email:", data.email);
-
-      // Perform login via zustand store
       const user = await login(data.email, data.password);
 
       if (user) {
@@ -30,7 +26,7 @@ export default function LoginPage() {
           title: "Success!",
           description: "You have been logged in.",
         });
-        router.push(callbackUrl); // Redirect to dashboard or callback URL
+        router.push(callbackUrl);
         router.refresh();
       }
     } catch (error: any) {
@@ -50,13 +46,31 @@ export default function LoginPage() {
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome Back
+            Welcome back
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter your email and password to sign in to your account
+            Enter your email to sign in to your account
           </p>
         </div>
-        <AuthForm type="login" onSubmit={onSubmit} isLoading={isLoading} />
+
+        <AuthForm
+          onSubmit={onSubmit}
+          submitButton={
+            <Button disabled={isLoading} type="submit" className="w-full">
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Sign In
+            </Button>
+          }
+        />
+
+        <p className="px-8 text-center text-sm text-muted-foreground">
+          <a
+            href="/auth/register"
+            className="hover:text-brand underline underline-offset-4"
+          >
+            Don&apos;t have an account? Sign Up
+          </a>
+        </p>
       </div>
     </div>
   );

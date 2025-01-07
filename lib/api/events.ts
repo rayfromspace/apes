@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client";
-import { Event } from "@/types/events";
+import { Event, CreateEventInput } from "@/types/events";
+import { format, parseISO } from "date-fns";
 
 // Demo events for testing
 const DEMO_EVENTS: Event[] = [
@@ -73,164 +74,125 @@ const DEMO_EVENTS: Event[] = [
 
 export async function getUserEvents(userId: string): Promise<Event[]> {
   try {
-    console.log('Fetching events for user:', userId);
-
-    // Get all events where the user is either the creator or an attendee
-    const { data: events, error: eventsError } = await supabase
+    const { data: events, error } = await supabase
       .from('events')
       .select(`
         *,
-        project:projects(id, name),
-        attendees:event_attendees(
-          user:profiles(id, full_name, avatar_url)
+        creator:creator_id (
+          id,
+          email
         ),
-        created_by:profiles(id, full_name)
+        attendees:event_attendees (
+          user:user_id (
+            id,
+            email
+          )
+        )
       `)
-      .or(`created_by.eq.${userId},attendees.user.id.eq.${userId}`)
+      .or(`creator_id.eq.${userId},event_attendees.user_id.eq.${userId})`)
       .order('date', { ascending: true });
 
-    if (eventsError) {
-      console.error('Error fetching events:', eventsError);
-      throw eventsError;
-    }
+    if (error) throw error;
 
-    console.log('Raw events data:', events);
-
-    // Transform the data to match our Event type
-    return events?.map(event => ({
+    return events.map((event: any) => ({
       id: event.id,
       title: event.title,
       description: event.description,
-      startTime: event.start_time,
-      duration: event.duration.replace(' minutes', ''),
-      date: event.date,
+      date: format(parseISO(event.date), 'yyyy-MM-dd'),
+      startTime: format(parseISO(event.start_time), 'HH:mm'),
+      duration: event.duration,
       type: event.type,
-      projectId: event.project?.id || event.project_id,
-      projectName: event.project?.name || 'Default Project',
-      attendees: event.attendees?.map((a: any) => ({
-        id: a.user.id,
-        name: a.user.full_name,
-        avatar: a.user.avatar_url,
-      })) || [],
+      projectId: event.project_id,
+      projectName: event.project_name || 'Unknown Project',
       location: event.location,
       isVirtual: event.is_virtual,
       meetingLink: event.meeting_link,
       createdBy: {
-        id: event.created_by?.id || userId,
-        name: event.created_by?.full_name || 'Unknown',
+        id: event.creator?.id,
+        name: event.creator?.email || 'Unknown',
       },
-    })) || [];
-
+      attendees: event.attendees?.map((attendee: any) => ({
+        id: attendee.user?.id,
+        name: attendee.user?.email || 'Unknown',
+      })) || [],
+    }));
   } catch (error) {
-    console.error('Error fetching user events:', error);
-    return [];
+    console.error('Error fetching events:', error);
+    throw error;
   }
 }
 
-export async function createEvent(eventData: Omit<Event, 'id'>): Promise<Event | null> {
+export async function createEvent(eventData: CreateEventInput): Promise<Event | null> {
   try {
-    console.log('Creating event with data:', eventData);
-
-    // First, insert the event
+    // First, create the event
     const { data: event, error: eventError } = await supabase
       .from('events')
-      .insert([{
+      .insert({
         title: eventData.title,
         description: eventData.description,
-        start_time: eventData.startTime,
-        duration: `${eventData.duration} minutes`,
         date: eventData.date,
+        start_time: eventData.startTime,
+        duration: eventData.duration,
         type: eventData.type,
         project_id: eventData.projectId,
+        project_name: eventData.projectName,
+        location: eventData.location,
         is_virtual: eventData.isVirtual,
         meeting_link: eventData.meetingLink,
-        created_by: eventData.createdBy.id,
-      }])
+        creator_id: eventData.createdBy.id,
+      })
       .select()
       .single();
 
-    if (eventError) {
-      console.error('Error creating event:', eventError);
-      throw eventError;
+    if (eventError) throw eventError;
+
+    // Then, add attendees
+    if (event && eventData.attendees?.length) {
+      const attendeePromises = eventData.attendees.map(attendee =>
+        supabase.from('event_attendees').insert({
+          event_id: event.id,
+          user_id: attendee.id,
+          status: 'accepted',
+        })
+      );
+
+      await Promise.all(attendeePromises);
     }
 
-    console.log('Created event:', event);
-
-    // If there are attendees, insert them
-    if (eventData.attendees?.length) {
-      const { error: attendeesError } = await supabase
-        .from('event_attendees')
-        .insert(
-          eventData.attendees.map(attendee => ({
-            event_id: event.id,
-            user_id: attendee.id,
-          }))
-        );
-
-      if (attendeesError) {
-        console.error('Error adding attendees:', attendeesError);
-        throw attendeesError;
-      }
-    }
-
-    // Return the created event with the correct structure
+    // Return the created event
     return {
       ...eventData,
       id: event.id,
     };
-
   } catch (error) {
     console.error('Error creating event:', error);
     return null;
   }
 }
 
-export async function updateEvent(event: Event): Promise<Event | null> {
+export async function updateEvent(eventId: string, eventData: Partial<Event>): Promise<Event | null> {
   try {
-    // Update the event
-    const { error: eventError } = await supabase
+    const { data: event, error } = await supabase
       .from('events')
       .update({
-        title: event.title,
-        description: event.description,
-        start_time: event.startTime,
-        duration: `${event.duration} minutes`,
-        date: event.date,
-        type: event.type,
-        project_id: event.projectId,
-        location: event.location,
-        is_virtual: event.isVirtual,
-        meeting_link: event.meetingLink,
+        title: eventData.title,
+        description: eventData.description,
+        date: eventData.date,
+        start_time: eventData.startTime,
+        duration: eventData.duration,
+        type: eventData.type,
+        project_id: eventData.projectId,
+        location: eventData.location,
+        is_virtual: eventData.isVirtual,
+        meeting_link: eventData.meetingLink,
       })
-      .eq('id', event.id);
+      .eq('id', eventId)
+      .select()
+      .single();
 
-    if (eventError) throw eventError;
+    if (error) throw error;
 
-    // Update attendees
-    if (event.attendees) {
-      // First, remove all existing attendees
-      const { error: deleteError } = await supabase
-        .from('event_attendees')
-        .delete()
-        .eq('event_id', event.id);
-
-      if (deleteError) throw deleteError;
-
-      // Then insert new attendees
-      const { error: attendeesError } = await supabase
-        .from('event_attendees')
-        .insert(
-          event.attendees.map(attendee => ({
-            event_id: event.id,
-            user_id: attendee.id,
-          }))
-        );
-
-      if (attendeesError) throw attendeesError;
-    }
-
-    return event;
-
+    return event as Event;
   } catch (error) {
     console.error('Error updating event:', error);
     return null;
@@ -239,24 +201,13 @@ export async function updateEvent(event: Event): Promise<Event | null> {
 
 export async function deleteEvent(eventId: string): Promise<boolean> {
   try {
-    // Delete event attendees first (due to foreign key constraint)
-    const { error: attendeesError } = await supabase
-      .from('event_attendees')
-      .delete()
-      .eq('event_id', eventId);
-
-    if (attendeesError) throw attendeesError;
-
-    // Then delete the event
-    const { error: eventError } = await supabase
+    const { error } = await supabase
       .from('events')
       .delete()
       .eq('id', eventId);
 
-    if (eventError) throw eventError;
-
+    if (error) throw error;
     return true;
-
   } catch (error) {
     console.error('Error deleting event:', error);
     return false;

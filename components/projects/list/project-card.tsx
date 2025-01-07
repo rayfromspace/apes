@@ -106,10 +106,10 @@ export function ProjectCard({ project, showAnalytics = false }: ProjectCardProps
           {project.description}
         </p>
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>Funding Progress</span>
             <span className="font-medium">
-              ${project.current_funding.toLocaleString()} / ${project.funding_goal.toLocaleString()}
+              ${project.current_funding?.toLocaleString() ?? '0'} / ${project.funding_goal?.toLocaleString() ?? '0'}
             </span>
           </div>
           <Progress value={fundingProgress} className="h-2" />

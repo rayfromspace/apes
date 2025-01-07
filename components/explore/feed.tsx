@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreatePost } from "@/components/explore/create-post";
 import { PostCard } from "@/components/explore/post-card";
-import { ProjectCard } from "@/components/projects/project-card";
+import { ProjectCard } from "@/components/projects/list/project-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";

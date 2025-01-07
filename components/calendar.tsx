@@ -9,8 +9,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO, addMinutes } from 'date-fns';
-import { getUserEvents } from '@/lib/api/events';
-import { Event } from '@/types/events';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,40 +16,27 @@ import {
   Dialog,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { CreateEventDialog } from "@/components/dashboard/schedule";
+import { CreateEventDialog } from "@/components/shared/create-event-dialog";
+import { useEventStore } from '@/lib/stores/events';
 
 export default function Calendar() {
   const [view, setView] = useState<'Month' | 'Week' | 'Day'>('Week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
+  const { events, isLoading, error, fetchEvents } = useEventStore();
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  const fetchEvents = useCallback(async () => {
-    if (!user?.id || authLoading) return;
-    
-    try {
-      setLoading(true);
-      const fetchedEvents = await getUserEvents(user.id);
-      console.log('Fetched events:', fetchedEvents);
-      setEvents(fetchedEvents);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, authLoading]);
-
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    if (user) {
+      fetchEvents();
+    }
+  }, [user, fetchEvents]);
 
   const handlePreviousMonth = () => {
     setCurrentDate(prev => subMonths(prev, 1));
@@ -95,7 +80,7 @@ export default function Calendar() {
   // Calculate end time based on start time and duration
   const getEventEndTime = (event: Event) => {
     const startTime = parseISO(`${event.date}T${event.startTime}`);
-    return addMinutes(startTime, parseInt(event.duration));
+    return addMinutes(startTime, event.duration);
   };
 
   return (
@@ -168,7 +153,7 @@ export default function Calendar() {
         </Card>
 
         {/* Current/Next Event Card */}
-        {loading ? (
+        {isLoading ? (
           <Card className="p-4 bg-muted/50">
             <Skeleton className="h-4 w-24 mb-2" />
             <Skeleton className="h-6 w-48 mb-4" />
@@ -187,7 +172,7 @@ export default function Calendar() {
                 <h3 className="font-semibold mt-1">{nextEvent.title}</h3>
               </div>
               <span className="text-sm text-muted-foreground">
-                {differenceInMinutes(parseISO(nextEvent.startTime), new Date())} min
+                {Math.floor((parseISO(nextEvent.startTime).getTime() - new Date().getTime()) / 60000)} min
               </span>
             </div>
             <div className="flex gap-2">
@@ -205,7 +190,7 @@ export default function Calendar() {
         <div>
           <h3 className="font-semibold mb-3">My Calendars</h3>
           <div className="space-y-2">
-            {loading ? (
+            {isLoading ? (
               <>
                 <Skeleton className="h-6 w-full" />
                 <Skeleton className="h-6 w-full" />

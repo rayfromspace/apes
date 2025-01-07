@@ -1,6 +1,8 @@
 "use client";
 
-import { useAuth } from "@/lib/auth";
+import { useEffect } from "react";
+import { useAuth } from "@/lib/auth/store";
+import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { DashboardProjects } from "@/components/dashboard/projects";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
@@ -8,9 +10,29 @@ import { Notifications } from "@/components/dashboard/notifications";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { Schedule } from "@/components/dashboard/schedule";
 import { DashboardStats } from "@/components/dashboard/stats/stats";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated, isInitialized } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isInitialized && !isAuthenticated) {
+      router.replace('/auth/login');
+    }
+  }, [isInitialized, isAuthenticated, router]);
+
+  if (!isInitialized) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <DashboardLayout>
@@ -27,7 +49,7 @@ export default function DashboardPage() {
             {/* Stats Section */}
             <DashboardStats showProjectStats={false} />
 
-            {/* Active Projects Section */}x
+            {/* Active Projects Section */}
             <DashboardProjects />
 
             {/* Quick Actions */}

@@ -28,14 +28,6 @@ const registerSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       "Password must contain at least one uppercase letter, one lowercase letter, and one number"
     ),
-  username: z
-    .string()
-    .min(3, "Username must be at least 3 characters")
-    .max(30, "Username must be less than 30 characters")
-    .regex(
-      /^[a-zA-Z0-9_-]+$/,
-      "Username can only contain letters, numbers, underscores, and hyphens"
-    ),
   first_name: z.string().min(2, "First name must be at least 2 characters"),
   last_name: z.string().min(2, "Last name must be at least 2 characters"),
 });
@@ -53,7 +45,6 @@ export function RegisterForm({ onSubmit, isLoading }: RegisterFormProps) {
     defaultValues: {
       email: "",
       password: "",
-      username: "",
       first_name: "",
       last_name: "",
     },
@@ -61,117 +52,109 @@ export function RegisterForm({ onSubmit, isLoading }: RegisterFormProps) {
 
   const handleSubmit = async (data: z.infer<typeof registerSchema>) => {
     try {
+      setError(null);
       await onSubmit(data);
-    } catch (error: any) {
-      setError(error.message);
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-4 relative">
-      <div className="text-center mb-6">
-        <h1 className="text-xl font-semibold">Create an account</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Enter your details to get started
+    <div className="grid gap-6 p-6">
+      <div className="flex flex-col space-y-2 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Create an account
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Enter your details below to create your account
         </p>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="first_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="last_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="name@example.com" type="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input placeholder="••••••••" type="password" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Must be at least 8 characters and include uppercase, lowercase, and numbers
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-sm">Email</FormLabel>
-                <FormControl>
-                  <Input className="h-9" placeholder="Enter your email" {...field} />
-                </FormControl>
-                <FormMessage className="text-xs" />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-sm">Username</FormLabel>
-                <FormControl>
-                  <Input className="h-9" placeholder="Choose a username" {...field} />
-                </FormControl>
-                <FormDescription className="text-xs">
-                  This will be your unique identifier
-                </FormDescription>
-                <FormMessage className="text-xs" />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField
-              control={form.control}
-              name="first_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm">First Name</FormLabel>
-                  <FormControl>
-                    <Input className="h-9" placeholder="First name" {...field} />
-                  </FormControl>
-                  <FormMessage className="text-xs" />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="last_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm">Last Name</FormLabel>
-                  <FormControl>
-                    <Input className="h-9" placeholder="Last name" {...field} />
-                  </FormControl>
-                  <FormMessage className="text-xs" />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-sm">Password</FormLabel>
-                <FormControl>
-                  <Input 
-                    className="h-9"
-                    type="password" 
-                    placeholder="Create a password" 
-                    {...field} 
-                  />
-                </FormControl>
-                <FormMessage className="text-xs" />
-              </FormItem>
-            )}
-          />
-
-          <Button 
-            type="submit" 
-            className="w-full mt-6" 
-            disabled={isLoading}
-          >
+          <Button disabled={isLoading} type="submit" className="w-full">
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Account
           </Button>
+
+          <p className="px-8 text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <a
+              href="/auth/login"
+              className="hover:text-brand underline underline-offset-4"
+            >
+              Sign in
+            </a>
+          </p>
         </form>
       </Form>
     </div>

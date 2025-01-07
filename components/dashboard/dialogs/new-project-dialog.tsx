@@ -55,6 +55,51 @@ const digitalServiceCategories = [
   "Data Analysis", "Virtual Event Planning", "Remote Therapy or Counseling", "Other"
 ];
 
+const defaultTasks = [
+  {
+    title: "Project Setup",
+    description: "Set up initial project structure and requirements",
+    priority: "high",
+    status: "todo",
+    due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 week from now
+  },
+  {
+    title: "Team Onboarding",
+    description: "Onboard team members and assign initial roles",
+    priority: "high",
+    status: "todo",
+    due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days from now
+  },
+  {
+    title: "Project Timeline",
+    description: "Create detailed project timeline and milestones",
+    priority: "medium",
+    status: "todo",
+    due_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days from now
+  }
+];
+
+const defaultEvents = [
+  {
+    title: "Project Kickoff Meeting",
+    description: "Initial team meeting to discuss project goals and timeline",
+    date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tomorrow
+    start_time: "10:00:00",
+    duration: 60,
+    type: "meeting",
+    is_virtual: true,
+  },
+  {
+    title: "First Sprint Planning",
+    description: "Plan the first sprint and assign tasks",
+    date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days from now
+    start_time: "14:00:00",
+    duration: 90,
+    type: "meeting",
+    is_virtual: true,
+  }
+];
+
 export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewProjectDialogProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -139,6 +184,8 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         image_url,
         status: 'active',
         visibility: 'public',
+        current_funding: 0,
+        funding_goal: 10000,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -171,6 +218,51 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         console.error('Team member creation error:', teamError);
       }
 
+      // Create default tasks
+      const tasksWithProjectId = defaultTasks.map(task => ({
+        ...task,
+        project_id: project.id,
+        creator_id: session.user.id,
+        assignee_id: session.user.id,
+      }));
+
+      const { error: tasksError } = await supabase
+        .from('tasks')
+        .insert(tasksWithProjectId);
+
+      if (tasksError) {
+        console.error('Tasks creation error:', tasksError);
+      }
+
+      // Create default events
+      const eventsWithProjectId = defaultEvents.map(event => ({
+        ...event,
+        project_id: project.id,
+        creator_id: session.user.id,
+      }));
+
+      const { error: eventsError } = await supabase
+        .from('events')
+        .insert(eventsWithProjectId);
+
+      if (eventsError) {
+        console.error('Events creation error:', eventsError);
+      }
+
+      // Create welcome message/announcement
+      const { error: messageError } = await supabase
+        .from('messages')
+        .insert({
+          project_id: project.id,
+          sender_id: session.user.id,
+          content: `Welcome to ${formData.projectName}! 🎉\n\nI've created this project to help us collaborate effectively. Here's what you'll find:\n\n1. Tasks: I've added some initial tasks to get us started\n2. Calendar: Check out our upcoming meetings\n3. Team: You can invite team members using the "Invite" button\n\nLet's make this project a success! 🚀`,
+          type: 'announcement'
+        });
+
+      if (messageError) {
+        console.error('Message creation error:', messageError);
+      }
+
       // Notify parent component about the new project
       onProjectCreated?.(project);
 
@@ -200,95 +292,114 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
       setFormData(prev => ({ ...prev, projectImage: e.target.files![0] }));
     }
   };
 
+  const categories = formData.projectType === 'product' ? digitalProductCategories : digitalServiceCategories;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="projectName">Project Name</Label>
-              <Input
-                id="projectName"
-                value={formData.projectName}
-                onChange={(e) => setFormData(prev => ({ ...prev, projectName: e.target.value }))}
-                placeholder="Enter project name"
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Project Name */}
+          <div className="space-y-2">
+            <Label htmlFor="projectName">Project Name</Label>
+            <Input
+              id="projectName"
+              value={formData.projectName}
+              onChange={(e) => setFormData(prev => ({ ...prev, projectName: e.target.value }))}
+              placeholder="Enter project name"
+            />
+          </div>
 
-            <div>
-              <Label htmlFor="projectType">Project Type</Label>
-              <Select
-                value={formData.projectType}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, projectType: value as 'product' | 'service' }))}
-              >
-                <SelectTrigger id="projectType">
-                  <SelectValue placeholder="Select project type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="product">Digital Product</SelectItem>
-                  <SelectItem value="service">Digital Service</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Project Type */}
+          <div className="space-y-2">
+            <Label>Project Type</Label>
+            <Select
+              value={formData.projectType}
+              onValueChange={(value: 'product' | 'service') => 
+                setFormData(prev => ({ ...prev, projectType: value, projectCategory: '' }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select project type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="product">Digital Product</SelectItem>
+                <SelectItem value="service">Digital Service</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div>
-              <Label htmlFor="projectCategory">Category</Label>
-              <Input
-                id="projectCategory"
-                value={formData.projectCategory}
-                onChange={(e) => setFormData(prev => ({ ...prev, projectCategory: e.target.value }))}
-                placeholder="Enter project category (e.g., Web Development, Mobile App)"
-              />
-            </div>
+          {/* Project Category */}
+          <div className="space-y-2">
+            <Label>Category</Label>
+            <Select
+              value={formData.projectCategory}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, projectCategory: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div>
-              <Label htmlFor="projectDescription">Project Description</Label>
-              <Textarea
-                id="projectDescription"
-                value={formData.projectDescription}
-                onChange={(e) => setFormData(prev => ({ ...prev, projectDescription: e.target.value }))}
-                placeholder="Describe your project..."
-                className="h-32"
-              />
-            </div>
+          {/* Project Description */}
+          <div className="space-y-2">
+            <Label htmlFor="projectDescription">Description</Label>
+            <Textarea
+              id="projectDescription"
+              value={formData.projectDescription}
+              onChange={(e) => setFormData(prev => ({ ...prev, projectDescription: e.target.value }))}
+              placeholder="Describe your project"
+              className="h-32"
+            />
+          </div>
 
-            <div>
-              <Label>Project Image</Label>
-              <div 
-                className="mt-2 flex flex-col items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors cursor-pointer"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                />
-                <div className="p-3 bg-primary/10 rounded-full">
-                  <Upload className="h-5 w-5 text-primary" />
-                </div>
-                <div className="text-center">
-                  <p className="text-base font-medium">Upload Project Image</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formData.projectImage 
-                      ? `Selected: ${formData.projectImage.name}`
-                      : "Drag and drop or click to upload"}
-                  </p>
-                </div>
+          {/* Project Image */}
+          <div className="space-y-2">
+            <Label>Project Image</Label>
+            <div 
+              className={cn(
+                "border-2 border-dashed rounded-lg p-4 hover:bg-accent/50 cursor-pointer transition-colors",
+                "flex flex-col items-center justify-center gap-2 text-center"
+              )}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-8 w-8 text-muted-foreground" />
+              <div className="text-sm text-muted-foreground">
+                {formData.projectImage ? (
+                  <span>{formData.projectImage.name}</span>
+                ) : (
+                  <span>Click to upload project image</span>
+                )}
               </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageChange}
+              />
             </div>
+          </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {/* Submit Button */}
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Creating..." : "Create Project"}
             </Button>
           </div>

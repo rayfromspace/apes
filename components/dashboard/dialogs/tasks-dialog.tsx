@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,221 +10,249 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { Calendar, CheckCircle2, Clock } from "lucide-react";
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  priority: "high" | "medium" | "low";
-  status: "todo" | "in_progress" | "completed";
-  project?: string;
-  assignee?: string;
-}
-
-// Demo tasks for development
-const DEMO_TASKS: Task[] = [
-  {
-    id: "1",
-    title: "Review Project Proposal",
-    description: "Review and provide feedback on the latest project proposal",
-    dueDate: "2024-01-15",
-    priority: "high",
-    status: "todo",
-    project: "DeFi Trading Platform",
-    assignee: "Sarah Chen",
-  },
-  {
-    id: "2",
-    title: "Prepare Investor Presentation",
-    description: "Create slides for Q1 investor meeting",
-    dueDate: "2024-01-18",
-    priority: "high",
-    status: "in_progress",
-    assignee: "Alex Thompson",
-  },
-];
+import { useTaskStore } from "@/lib/stores/tasks";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/components/ui/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface TasksDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId?: string;
 }
 
-export function TasksDialog({ open, onOpenChange }: TasksDialogProps) {
-  const [activeTab, setActiveTab] = useState("todo");
-  const [tasks, setTasks] = useState<Task[]>(DEMO_TASKS);
-  const [newTask, setNewTask] = useState({
+export function TasksDialog({ open, onOpenChange, projectId }: TasksDialogProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { tasks, isLoading, error, fetchTasks, createTask, updateTask, deleteTask } = useTaskStore();
+  const [activeTab, setActiveTab] = useState("all");
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [formData, setFormData] = useState({
     title: "",
     description: "",
-    dueDate: "",
-    priority: "medium",
-    assignee: "",
+    dueDate: format(new Date(), "yyyy-MM-dd"),
+    priority: "medium" as const,
+    status: "todo" as const,
   });
 
-  const handleAddTask = () => {
-    const task: Task = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: newTask.title,
-      description: newTask.description,
-      dueDate: newTask.dueDate,
-      priority: newTask.priority as "high" | "medium" | "low",
-      status: "todo",
-      assignee: newTask.assignee,
-    };
+  useEffect(() => {
+    if (open && user) {
+      fetchTasks(projectId);
+    }
+  }, [open, user, projectId, fetchTasks]);
 
-    setTasks([...tasks, task]);
-    setNewTask({
-      title: "",
-      description: "",
-      dueDate: "",
-      priority: "medium",
-      assignee: "",
-    });
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    try {
+      const task = await createTask({
+        ...formData,
+        projectId,
+        assigneeId: user.id,
+      });
+
+      if (task) {
+        toast({
+          title: "Success",
+          description: "Task created successfully",
+        });
+        setShowNewTaskForm(false);
+        setFormData({
+          title: "",
+          description: "",
+          dueDate: format(new Date(), "yyyy-MM-dd"),
+          priority: "medium",
+          status: "todo",
+        });
+      }
+    } catch (error) {
+      console.error("Error creating task:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create task",
+      });
+    }
   };
 
-  const updateTaskStatus = (taskId: string, status: Task["status"]) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, status } : task
-    ));
+  const handleUpdateStatus = async (taskId: string, newStatus: "todo" | "in_progress" | "completed") => {
+    try {
+      await updateTask(taskId, { status: newStatus });
+      toast({
+        title: "Success",
+        description: "Task status updated",
+      });
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update task status",
+      });
+    }
   };
 
-  const deleteTask = (taskId: string) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
-  };
+  const filteredTasks = tasks.filter((task) => {
+    if (activeTab === "all") return true;
+    if (activeTab === "todo") return task.status === "todo";
+    if (activeTab === "in_progress") return task.status === "in_progress";
+    if (activeTab === "completed") return task.status === "completed";
+    return true;
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Tasks</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="todo" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="todo">To Do</TabsTrigger>
-            <TabsTrigger value="in_progress">In Progress</TabsTrigger>
-            <TabsTrigger value="completed">Completed</TabsTrigger>
-            <TabsTrigger value="add">Add New</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[400px]">
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="todo">To Do</TabsTrigger>
+                <TabsTrigger value="in_progress">In Progress</TabsTrigger>
+                <TabsTrigger value="completed">Completed</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button onClick={() => setShowNewTaskForm(true)}>New Task</Button>
+          </div>
 
-          {["todo", "in_progress", "completed"].map((status) => (
-            <TabsContent key={status} value={status}>
-              <ScrollArea className="h-[400px] pr-4">
-                <div className="space-y-4">
-                  {tasks
-                    .filter(task => task.status === status)
-                    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-                    .map((task) => (
-                      <div key={task.id} className="flex items-start justify-between p-4 border rounded-lg">
-                        <div className="space-y-1">
-                          <h4 className="font-medium">{task.title}</h4>
-                          <p className="text-sm text-muted-foreground">{task.description}</p>
-                          <div className="flex flex-wrap gap-2">
-                            <Badge>
-                              <Clock className="w-3 h-3 mr-1" />
-                              {format(new Date(task.dueDate), "MMM d, yyyy")}
-                            </Badge>
-                            <Badge variant={
-                              task.priority === "high" ? "destructive" : 
-                              task.priority === "medium" ? "default" : 
-                              "secondary"
-                            }>
-                              {task.priority}
-                            </Badge>
-                            {task.project && (
-                              <Badge variant="outline">{task.project}</Badge>
-                            )}
-                            {task.assignee && (
-                              <Badge variant="secondary">{task.assignee}</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          {status !== "completed" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateTaskStatus(task.id, status === "todo" ? "in_progress" : "completed")}
-                            >
-                              {status === "todo" ? "Start" : "Complete"}
-                            </Button>
-                          )}
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => deleteTask(task.id)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-          ))}
-
-          <TabsContent value="add">
-            <div className="space-y-4">
+          {showNewTaskForm && (
+            <form onSubmit={handleCreateTask} className="space-y-4 border rounded-lg p-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Task Title</Label>
+                <Label htmlFor="title">Title</Label>
                 <Input
                   id="title"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  placeholder="Enter task title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Input
+                <Textarea
                   id="description"
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  placeholder="Enter task description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="dueDate">Due Date</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={newTask.dueDate}
-                  onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dueDate">Due Date</Label>
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value: "high" | "medium" | "low") =>
+                      setFormData({ ...formData, priority: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value: "todo" | "in_progress" | "completed") =>
+                      setFormData({ ...formData, status: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="priority">Priority</Label>
-                <select
-                  id="priority"
-                  className="w-full p-2 border rounded-md"
-                  value={newTask.priority}
-                  onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowNewTaskForm(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Create Task</Button>
+              </div>
+            </form>
+          )}
+
+          <ScrollArea className="h-[500px] border rounded-lg">
+            <div className="p-4 space-y-4">
+              {filteredTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-start justify-between border rounded-lg p-4 hover:bg-accent transition-colors"
                 >
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="assignee">Assignee</Label>
-                <Input
-                  id="assignee"
-                  value={newTask.assignee}
-                  onChange={(e) => setNewTask({ ...newTask, assignee: e.target.value })}
-                  placeholder="Enter assignee name"
-                />
-              </div>
-              <Button 
-                className="w-full" 
-                onClick={handleAddTask}
-                disabled={!newTask.title || !newTask.description || !newTask.dueDate}
-              >
-                Add Task
-              </Button>
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-medium">{task.title}</h3>
+                      <Badge
+                        variant={
+                          task.priority === "high"
+                            ? "destructive"
+                            : task.priority === "medium"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
+                        {task.priority}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{task.description}</p>
+                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-1" />
+                        {format(new Date(task.dueDate), "MMM d, yyyy")}
+                      </div>
+                    </div>
+                  </div>
+                  <Select
+                    value={task.status}
+                    onValueChange={(value: "todo" | "in_progress" | "completed") =>
+                      handleUpdateStatus(task.id, value)
+                    }
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+              {filteredTasks.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                  No tasks found
+                </div>
+              )}
             </div>
-          </TabsContent>
-        </Tabs>
+          </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -10,7 +10,7 @@ import {
   Users2, 
   ArrowRight,
   Clock,
-  AlertCircle,
+  CheckCircle2,
   Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,88 +26,8 @@ import { GoalsDialog } from "../dialogs/goals-dialog";
 import { ConnectionsDialog } from "../dialogs/connections-dialog";
 import { DeadlinesDialog } from "../dialogs/deadlines-dialog";
 import { TasksDialog } from "../dialogs/tasks-dialog";
-
-// Demo data for hover states
-const ACTIVE_PROJECTS = [
-  {
-    id: "1",
-    name: "DeFi Trading Platform",
-    role: "Founder",
-    status: "In Progress",
-    progress: 75,
-  },
-  {
-    id: "2",
-    name: "AI Content Creator",
-    role: "Board Member",
-    status: "Active",
-    progress: 45,
-  },
-];
-
-const RECENT_CONNECTIONS = [
-  {
-    id: "1",
-    name: "Sarah Chen",
-    avatar: "https://avatar.vercel.sh/sarah",
-    role: "AI Engineer",
-    timestamp: "2 hours ago",
-  },
-  {
-    id: "2",
-    name: "Alex Thompson",
-    avatar: "https://avatar.vercel.sh/alex",
-    role: "Product Designer",
-    timestamp: "5 hours ago",
-  },
-];
-
-const UPCOMING_DEADLINES = [
-  {
-    title: "Smart Contract Audit",
-    project: "DeFi Trading Platform",
-    date: "Today",
-    priority: "high",
-  },
-  {
-    title: "UI/UX Review",
-    project: "AI Content Creator",
-    date: "Tomorrow",
-    priority: "medium",
-  },
-];
-
-const PENDING_TASKS = [
-  {
-    title: "Review Pull Request",
-    project: "DeFi Trading Platform",
-    priority: "high",
-    dueDate: "Today",
-  },
-  {
-    title: "Update Documentation",
-    project: "AI Content Creator",
-    priority: "medium",
-    dueDate: "Tomorrow",
-  },
-];
-
-const GOALS = [
-  {
-    id: "1",
-    title: "Launch MVP",
-    status: "In Progress",
-    deadline: "2024-03-01",
-    progress: 75,
-  },
-  {
-    id: "2",
-    title: "Secure Seed Funding",
-    status: "Not Started",
-    deadline: "2024-06-30",
-    progress: 0,
-  },
-];
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useAuth } from "@/lib/auth/store";
 
 interface MetricCardProps {
   icon: React.ReactNode;
@@ -127,100 +47,116 @@ function MetricCard({
   onClick 
 }: MetricCardProps) {
   return (
-    <HoverCard openDelay={200} closeDelay={100}>
+    <HoverCard>
       <HoverCardTrigger asChild>
         <Card 
           className={cn(
-            "cursor-pointer transition-all duration-200", 
-            "hover:shadow-lg hover:scale-[1.02] hover:border-primary/50",
+            "relative overflow-hidden transition-all hover:shadow-md cursor-pointer",
             className
           )}
           onClick={onClick}
         >
           <CardContent className="p-6">
-            <div className="flex items-center gap-2">
-              {icon}
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">{label}</p>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {label}
+                </p>
                 <p className="text-2xl font-bold">{value}</p>
               </div>
+              {icon}
             </div>
           </CardContent>
         </Card>
       </HoverCardTrigger>
-      <HoverCardContent 
-        align="start" 
-        className="w-80 p-0"
-        side="bottom"
-      >
+      <HoverCardContent className="w-80">
         {hoverContent}
       </HoverCardContent>
     </HoverCard>
   );
 }
 
-function ProjectsHoverContent() {
+function ProjectsHoverContent({ projects = [] }) {
+  const router = useRouter();
+  
   return (
-    <div className="space-y-3 p-4">
-      <h4 className="font-semibold text-sm">Your Active Projects</h4>
-      {ACTIVE_PROJECTS.map((project) => (
-        <div key={project.id} className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="font-medium text-sm">{project.name}</p>
-            <div className="flex items-center gap-2">
+    <div className="space-y-3">
+      <h4 className="font-semibold">Active Investments</h4>
+      {projects.length > 0 ? (
+        projects.map((project) => (
+          <div key={project.id} className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="font-medium text-sm">{project.name}</p>
               <Badge variant="secondary" className="text-xs">
-                {project.role}
+                {project.investment_type || 'Investment'}
               </Badge>
-              <span className="text-xs text-muted-foreground">
-                {project.progress}% Complete
-              </span>
+            </div>
+            <Badge variant="outline">{project.status}</Badge>
+          </div>
+        ))
+      ) : (
+        <p className="text-sm text-muted-foreground">No active investments</p>
+      )}
+      <Button
+        variant="link"
+        className="p-0 h-auto font-semibold"
+        onClick={() => router.push('/investments')}
+      >
+        View all investments
+        <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
+function ConnectionsHoverContent({ connections = [] }) {
+  return (
+    <div className="space-y-3">
+      <h4 className="font-semibold">Your Network</h4>
+      {connections.length > 0 ? (
+        connections.map((connection) => (
+          <div key={connection.id} className="flex items-center gap-3">
+            <UserAvatar 
+              user={{
+                id: connection.id,
+                name: connection.name,
+                avatar: connection.avatar,
+                role: connection.role
+              }}
+              showHoverCard={true}
+              size="md"
+            />
+            <div className="flex-1">
+              <p className="text-sm font-medium">{connection.name}</p>
+              <p className="text-xs text-muted-foreground">{connection.role}</p>
             </div>
           </div>
-          <Badge variant="outline">{project.status}</Badge>
-        </div>
-      ))}
+        ))
+      ) : (
+        <p className="text-sm text-muted-foreground">No connections yet</p>
+      )}
+      <Button
+        variant="link"
+        className="p-0 h-auto font-semibold"
+      >
+        Manage connections
+        <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
     </div>
   );
 }
 
-function ConnectionsHoverContent() {
+function DeadlinesHoverContent({ deadlines = [] }) {
   return (
-    <div className="space-y-3 p-4">
-      <h4 className="font-semibold text-sm">Recent Connections</h4>
-      {RECENT_CONNECTIONS.map((connection, i) => (
-        <div key={connection.id} className="flex items-center gap-3">
-          <UserAvatar 
-            user={{
-              id: connection.id,
-              name: connection.name,
-              avatar: connection.avatar,
-              role: connection.role
-            }}
-            showHoverCard={true}
-            size="md"
-          />
-          <div className="flex-1">
-            <p className="text-sm font-medium">{connection.name}</p>
-            <p className="text-xs text-muted-foreground">{connection.role}</p>
-          </div>
-          <span className="text-xs text-muted-foreground">{connection.timestamp}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DeadlinesHoverContent() {
-  return (
-    <div className="space-y-3 p-4">
-      <h4 className="font-semibold text-sm">Upcoming Deadlines</h4>
-      {UPCOMING_DEADLINES.map((deadline, i) => (
-        <div key={i} className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{deadline.title}</p>
-            <p className="text-xs text-muted-foreground">{deadline.project}</p>
-          </div>
-          <div className="flex items-center gap-2">
+    <div className="space-y-3">
+      <h4 className="font-semibold">Upcoming Deadlines</h4>
+      {deadlines.length > 0 ? (
+        deadlines.map((deadline, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{deadline.title}</p>
+              <p className="text-xs text-muted-foreground">{deadline.investment}</p>
+            </div>
             <Badge 
               variant="secondary" 
               className={cn(
@@ -232,23 +168,32 @@ function DeadlinesHoverContent() {
               {deadline.date}
             </Badge>
           </div>
-        </div>
-      ))}
+        ))
+      ) : (
+        <p className="text-sm text-muted-foreground">No upcoming deadlines</p>
+      )}
+      <Button
+        variant="link"
+        className="p-0 h-auto font-semibold"
+      >
+        View all deadlines
+        <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
     </div>
   );
 }
 
-function TasksHoverContent() {
+function TasksHoverContent({ tasks = [] }) {
   return (
-    <div className="space-y-3 p-4">
-      <h4 className="font-semibold text-sm">Pending Tasks</h4>
-      {PENDING_TASKS.map((task, i) => (
-        <div key={i} className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{task.title}</p>
-            <p className="text-xs text-muted-foreground">{task.project}</p>
-          </div>
-          <div className="flex items-center gap-2">
+    <div className="space-y-3">
+      <h4 className="font-semibold">Recent Tasks</h4>
+      {tasks.length > 0 ? (
+        tasks.map((task, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{task.title}</p>
+              <p className="text-xs text-muted-foreground">{task.investment}</p>
+            </div>
             <Badge 
               variant="secondary" 
               className={cn(
@@ -257,35 +202,20 @@ function TasksHoverContent() {
                 "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
               )}
             >
-              {task.dueDate}
+              {task.status}
             </Badge>
           </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function GoalsHoverContent() {
-  return (
-    <div className="space-y-3 p-4">
-      <h4 className="font-semibold text-sm">Your Current Goals</h4>
-      {GOALS.map((goal) => (
-        <div key={goal.id} className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="font-medium text-sm">{goal.title}</p>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">
-                Due: {goal.deadline}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {goal.progress}% Complete
-              </span>
-            </div>
-          </div>
-          <Badge variant="outline">{goal.status}</Badge>
-        </div>
-      ))}
+        ))
+      ) : (
+        <p className="text-sm text-muted-foreground">No recent tasks</p>
+      )}
+      <Button
+        variant="link"
+        className="p-0 h-auto font-semibold"
+      >
+        View all tasks
+        <ArrowRight className="ml-2 h-4 w-4" />
+      </Button>
     </div>
   );
 }
@@ -300,61 +230,232 @@ export function DashboardStats({ showProjectStats = false, projectId }: Dashboar
   const [isConnectionsDialogOpen, setIsConnectionsDialogOpen] = useState(false);
   const [isDeadlinesDialogOpen, setIsDeadlinesDialogOpen] = useState(false);
   const [isTasksDialogOpen, setIsTasksDialogOpen] = useState(false);
+  const [stats, setStats] = useState({
+    activeInvestments: 0,
+    connections: 0,
+    upcomingDeadlines: 0,
+    completedTasks: 0,
+  });
+  const [detailedData, setDetailedData] = useState({
+    projects: [],
+    connections: [],
+    deadlines: [],
+    tasks: []
+  });
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { user } = useAuth();
+  const supabase = createClientComponentClient();
+
+  const fetchStats = async () => {
+    if (!user) return;
+
+    try {
+      // Get active investments count and data
+      const { data: projects, count: activeInvestmentsCount, error: projectsError } = await supabase
+        .from('investments')
+        .select('*', { count: 'exact' })
+        .eq('status', 'active')
+        .or(`investor_id.eq.${user.id},team_members.user_id.eq.${user.id}`)
+        .limit(3);
+
+      if (projectsError) throw projectsError;
+
+      // Get connections count and data
+      const { data: connections, count: connectionsCount, error: connectionsError } = await supabase
+        .from('team_members')
+        .select(`
+          *,
+          user:users (
+            id,
+            name,
+            avatar_url
+          )
+        `)
+        .eq('user_id', user.id)
+        .limit(3);
+
+      if (connectionsError) throw connectionsError;
+
+      // Get upcoming deadlines count and data
+      const { data: deadlines, count: deadlinesCount, error: deadlinesError } = await supabase
+        .from('milestones')
+        .select(`
+          *,
+          investment:investments (
+            name
+          )
+        `)
+        .gte('due_date', new Date().toISOString())
+        .lte('due_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
+        .eq('completed', false)
+        .or(`investment_id.in.(select id from investments where investor_id.eq.${user.id}),investment_id.in.(select investment_id from team_members where user_id.eq.${user.id})`)
+        .limit(3);
+
+      if (deadlinesError) throw deadlinesError;
+
+      // Get completed tasks count and recent tasks
+      const { data: tasks, count: tasksCount, error: tasksError } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          investment:investments (
+            name
+          )
+        `)
+        .eq('assigned_to', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (tasksError) throw tasksError;
+
+      setStats({
+        activeInvestments: activeInvestmentsCount || 0,
+        connections: connectionsCount || 0,
+        upcomingDeadlines: deadlinesCount || 0,
+        completedTasks: tasksCount || 0,
+      });
+
+      setDetailedData({
+        projects: projects || [],
+        connections: connections || [],
+        deadlines: deadlines || [],
+        tasks: tasks || []
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+
+    // Set up real-time subscriptions
+    const projectsChannel = supabase
+      .channel('investments_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'investments',
+        },
+        () => fetchStats()
+      )
+      .subscribe();
+
+    const milestonesChannel = supabase
+      .channel('milestones_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'milestones',
+        },
+        () => fetchStats()
+      )
+      .subscribe();
+
+    const tasksChannel = supabase
+      .channel('tasks_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `assigned_to=eq.${user?.id}`,
+        },
+        () => fetchStats()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(projectsChannel);
+      supabase.removeChannel(milestonesChannel);
+      supabase.removeChannel(tasksChannel);
+    };
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                  <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          icon={<Star className="h-4 w-4" />}
-          label="Goals"
-          value={`${GOALS.length} Active`}
+          icon={<Lightbulb className="h-8 w-8 text-blue-500" />}
+          label="Active Investments"
+          value={stats.activeInvestments.toString()}
           className="bg-blue-50 dark:bg-blue-950"
-          hoverContent={<GoalsHoverContent />}
-          onClick={() => setIsGoalsDialogOpen(true)}
+          hoverContent={<ProjectsHoverContent projects={detailedData.projects} />}
+          onClick={() => router.push('/investments')}
         />
+
         <MetricCard
-          icon={<Users2 className="h-4 w-4" />}
+          icon={<Users2 className="h-8 w-8 text-green-500" />}
           label="Connections"
-          value="12"
+          value={stats.connections.toString()}
           className="bg-green-50 dark:bg-green-950"
-          hoverContent={<ConnectionsHoverContent />}
+          hoverContent={<ConnectionsHoverContent connections={detailedData.connections} />}
           onClick={() => setIsConnectionsDialogOpen(true)}
         />
+
         <MetricCard
-          icon={<Clock className="h-4 w-4" />}
-          label="Deadlines"
-          value="4"
-          className="bg-orange-50 dark:bg-orange-950"
-          hoverContent={<DeadlinesHoverContent />}
+          icon={<Clock className="h-8 w-8 text-yellow-500" />}
+          label="Upcoming Deadlines"
+          value={stats.upcomingDeadlines.toString()}
+          className="bg-yellow-50 dark:bg-yellow-950"
+          hoverContent={<DeadlinesHoverContent deadlines={detailedData.deadlines} />}
           onClick={() => setIsDeadlinesDialogOpen(true)}
         />
+
         <MetricCard
-          icon={<AlertCircle className="h-4 w-4" />}
-          label="Tasks"
-          value="6"
+          icon={<CheckCircle2 className="h-8 w-8 text-purple-500" />}
+          label="Completed Tasks"
+          value={stats.completedTasks.toString()}
           className="bg-purple-50 dark:bg-purple-950"
-          hoverContent={<TasksHoverContent />}
+          hoverContent={<TasksHoverContent tasks={detailedData.tasks} />}
           onClick={() => setIsTasksDialogOpen(true)}
         />
       </div>
 
-      <GoalsDialog 
-        open={isGoalsDialogOpen} 
+      <GoalsDialog
+        open={isGoalsDialogOpen}
         onOpenChange={setIsGoalsDialogOpen}
       />
-      <ConnectionsDialog 
-        open={isConnectionsDialogOpen} 
+      <ConnectionsDialog
+        open={isConnectionsDialogOpen}
         onOpenChange={setIsConnectionsDialogOpen}
       />
-      <DeadlinesDialog 
-        open={isDeadlinesDialogOpen} 
+      <DeadlinesDialog
+        open={isDeadlinesDialogOpen}
         onOpenChange={setIsDeadlinesDialogOpen}
       />
-      <TasksDialog 
-        open={isTasksDialogOpen} 
+      <TasksDialog
+        open={isTasksDialogOpen}
         onOpenChange={setIsTasksDialogOpen}
       />
-    </div>
+    </>
   );
 }

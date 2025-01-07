@@ -18,9 +18,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { getUserEvents, createEvent } from "@/lib/api/events";
+import { useEventStore } from "@/lib/stores/events"; 
 import { Event } from "@/types/events";
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, parseISO } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -231,8 +231,7 @@ export function CreateEventDialog({ onClose }: CreateEventDialogProps) {
 
 export function Schedule() {
   const { user } = useAuth();
-  const [events, setEvents] = useState<Event[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { events, isLoading, error, fetchEvents } = useEventStore();
   const [view, setView] = useState<'week' | 'day'>('week');
   const [startDayIndex, setStartDayIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -243,37 +242,44 @@ export function Schedule() {
   const today = new Date();
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      if (!user) return;
-      setIsLoading(true);
-      try {
-        const userEvents = await getUserEvents(user.id);
-        setEvents(userEvents);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (user) {
+      fetchEvents();
+    }
+  }, [user, fetchEvents]);
 
-    fetchEvents();
-  }, [user]);
+  const handleCreateEvent = () => {
+    setShowCreateDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setShowCreateDialog(false);
+  };
+
+  const handlePreviousWeek = () => {
+    setStartDayIndex(prev => Math.max(0, prev - 7));
+  };
+
+  const handleNextWeek = () => {
+    setStartDayIndex(prev => prev + 7);
+  };
 
   useEffect(() => {
-    const handleResize = () => {
+    const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const getEventsForDay = (day: string) => {
-    return events.filter(event => {
-      const eventDate = new Date(event.date);
-      const dayName = format(eventDate, 'EEEE');
-      return dayName === day;
-    });
+    return events.filter(event => 
+      isSameDay(parseISO(event.date), new Date(2024, 0, parseInt(day)))
+    ).sort((a, b) => 
+      parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime()
+    );
   };
 
   return (
@@ -330,7 +336,7 @@ export function Schedule() {
               variant="outline"
               size="icon"
               className="absolute left-0 top-1/2 -translate-y-1/2 z-10 md:hidden"
-              onClick={() => setStartDayIndex(prev => Math.max(0, prev - 1))}
+              onClick={handlePreviousWeek}
               disabled={startDayIndex === 0}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -377,7 +383,7 @@ export function Schedule() {
               variant="outline"
               size="icon"
               className="absolute right-0 top-1/2 -translate-y-1/2 z-10 md:hidden"
-              onClick={() => setStartDayIndex(prev => Math.min(days.length - 3, prev + 1))}
+              onClick={handleNextWeek}
               disabled={startDayIndex === days.length - 3}
             >
               <ChevronRight className="h-4 w-4" />

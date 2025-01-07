@@ -94,16 +94,22 @@ export function TaskBoard() {
   const handleDragEnd = (event: any) => {
     const { active, over } = event
 
+    if (!over) return
+
     if (active.id !== over.id) {
       setTasks((tasks) => {
         const oldIndex = tasks.findIndex((task) => task.id === active.id)
         const newIndex = tasks.findIndex((task) => task.id === over.id)
-
-        const updatedTasks = arrayMove(tasks, oldIndex, newIndex)
-        const activeTask = updatedTasks[newIndex]
-        activeTask.status = over.data.current.columnId as Task['status']
-
-        return updatedTasks
+        
+        return arrayMove(tasks, oldIndex, newIndex).map(task => {
+          if (task.id === active.id) {
+            return {
+              ...task,
+              status: over.data.current?.columnId || task.status
+            }
+          }
+          return task
+        })
       })
     }
 

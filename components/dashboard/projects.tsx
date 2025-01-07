@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Loader2, RefreshCw, Briefcase } from "lucide-react";
+import { Plus, Loader2, RefreshCw } from "lucide-react";
 import { Project } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
 import { NewProjectDialog } from './dialogs/new-project-dialog';
@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
+import { ProjectCard as MainProjectCard } from "@/components/projects/list/project-card";
 
 const MAX_ACTIVE_PROJECTS = 3;
 const POLLING_INTERVAL = 60000; // 1 minute in milliseconds
@@ -27,59 +27,6 @@ function CreateProjectCard({ onClick }: { onClick: () => void }) {
         <div>
           <h3 className="font-semibold text-lg">Create New Project</h3>
           <p className="text-sm text-muted-foreground">Start a new project and build your team</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ProjectCard({ project, onClick }: { project: Project; onClick?: () => void }) {
-  return (
-    <Card 
-      className="group relative hover:shadow-lg transition-shadow cursor-pointer" 
-      onClick={onClick}
-    >
-      <CardContent className="p-0">
-        <div className="aspect-video w-full relative overflow-hidden">
-          {project.image_url ? (
-            <Image
-              src={project.image_url}
-              alt={project.title}
-              fill
-              className="object-cover transition-transform group-hover:scale-105"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-              <Briefcase className="h-12 w-12 text-primary/40" />
-            </div>
-          )}
-        </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <h3 className="font-semibold text-lg truncate">{project.title}</h3>
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {project.description}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs capitalize">{project.type}</Badge>
-            <Badge variant="secondary" className="text-xs">{project.category}</Badge>
-          </div>
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-muted-foreground">
-              Created {new Date(project.created_at).toLocaleDateString()}
-            </div>
-            <div className="flex -space-x-2">
-              {project.team_members?.map((member) => (
-                <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
-                  <AvatarFallback>
-                    {member.user?.email?.[0]?.toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-            </div>
-          </div>
         </div>
       </CardContent>
     </Card>
@@ -109,10 +56,8 @@ export function DashboardProjects() {
         return;
       }
 
-      console.log('Loading projects for user:', session.user.id);
-      
-      // Get projects where user is founder
-      const { data: founderProjects, error: founderError } = await supabase
+      // Get projects where user is founder or team member
+      const { data: projectsData, error } = await supabase
         .from('projects')
         .select(`
           *,
@@ -121,51 +66,43 @@ export function DashboardProjects() {
             role,
             user_id,
             users (
-              email
+              id,
+              email,
+              name
             )
           )
         `)
-        .eq('founder_id', session.user.id)
-        .order('created_at', { ascending: false });
+        .or(`founder_id.eq.${session.user.id},team_members.user_id.eq.${session.user.id}`)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(MAX_ACTIVE_PROJECTS);
 
-      console.log('Founder projects:', founderProjects);
-
-      if (founderError) {
-        console.error('Error loading founder projects:', founderError);
+      if (error) {
+        console.error('Error loading projects:', error);
         return;
       }
 
-      // Get projects where user is team member
-      const { data: memberProjects, error: memberError } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          team_members (
-            id,
-            role,
-            user_id,
-            users (
-              email
-            )
-          )
-        `)
-        .neq('founder_id', session.user.id)
-        .eq('team_members.user_id', session.user.id)
-        .order('created_at', { ascending: false });
+      // Transform the data to match the project card structure
+      const transformedProjects = projectsData.map(project => ({
+        id: project.id,
+        title: project.title,
+        description: project.description,
+        category: project.category || 'Other',
+        visibility: project.visibility || 'private',
+        status: project.status || 'active',
+        created_at: project.created_at,
+        updated_at: project.updated_at,
+        founder_id: project.founder_id,
+        current_funding: project.current_funding || 0,
+        funding_goal: project.funding_goal || 0,
+        required_skills: project.required_skills || [],
+        team_members: project.team_members || [],
+        image_url: project.image_url,
+        progress: project.progress || 0
+      }));
 
-      console.log('Member projects:', memberProjects);
-
-      if (memberError) {
-        console.error('Error loading member projects:', memberError);
-        return;
-      }
-
-      // Combine and deduplicate projects
-      const allProjects = [...(founderProjects || []), ...(memberProjects || [])];
-      const uniqueProjects = Array.from(new Map(allProjects.map(p => [p.id, p])).values());
-      
-      console.log('All projects:', uniqueProjects);
-      setProjects(uniqueProjects);
+      console.log('Active projects:', transformedProjects);
+      setProjects(transformedProjects);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -241,8 +178,6 @@ export function DashboardProjects() {
     setProjects(prevProjects => [project, ...prevProjects]);
   };
 
-  const remainingSlots = MAX_ACTIVE_PROJECTS - projects.length;
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -273,28 +208,37 @@ export function DashboardProjects() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Active Projects */}
-        {projects.map((project) => (
-          <ProjectCard 
-            key={project.id} 
-            project={project} 
-            onClick={() => handleProjectClick(project.id)}
-          />
-        ))}
+        {/* Project Slots - Show active projects or empty slots */}
+        {Array.from({ length: MAX_ACTIVE_PROJECTS }).map((_, index) => {
+          const project = projects[index];
+          
+          if (project) {
+            return (
+              <MainProjectCard 
+                key={project.id} 
+                project={project}
+                showAnalytics={false}
+              />
+            );
+          }
 
-        {/* Create Project Card */}
-        {remainingSlots > 0 && (
-          <CreateProjectCard onClick={() => setIsDialogOpen(true)} />
-        )}
+          if (index === projects.length) {
+            return (
+              <CreateProjectCard 
+                key={`create-${index}`} 
+                onClick={() => setIsDialogOpen(true)} 
+              />
+            );
+          }
 
-        {/* Empty Slots */}
-        {remainingSlots > 1 && Array.from({ length: remainingSlots - 1 }).map((_, index) => (
-          <Card key={`empty-${index}`} className="opacity-50">
-            <CardContent className="p-6 min-h-[300px] flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">Project Slot Available</p>
-            </CardContent>
-          </Card>
-        ))}
+          return (
+            <Card key={`empty-${index}`} className="opacity-50">
+              <CardContent className="p-6 min-h-[300px] flex items-center justify-center">
+                <p className="text-sm text-muted-foreground">Project Slot Available</p>
+              </CardContent>
+            </Card>
+          );
+        })}
 
         <NewProjectDialog 
           open={isDialogOpen} 
