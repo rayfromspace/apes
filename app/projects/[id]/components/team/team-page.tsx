@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Search } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TeamTable } from "./team-table"
 import { InviteMemberDialog } from "./invite-member-dialog"
+import { useTeamStore } from "@/lib/stores/team-store"
+import { useParams } from "next/navigation"
 
 export interface TeamMember {
   id: string
@@ -17,82 +19,62 @@ export interface TeamMember {
   permission: "Project Admin" | "Editor" | "Viewer"
 }
 
-const initialMembers: TeamMember[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "johndoe@gmail.com",
-    lastActive: "6 hours ago",
-    assignedTasks: 4,
-    role: "CEO",
-    permission: "Project Admin",
-  },
-  {
-    id: "2",
-    name: "Mary Lee",
-    email: "marylee@gmail.com",
-    lastActive: "1 hour ago",
-    assignedTasks: 5,
-    role: "CTO",
-    permission: "Project Admin",
-  },
-  {
-    id: "3",
-    name: "Alice Harper",
-    email: "aliceharper@gmail.com",
-    lastActive: "2 hours ago",
-    assignedTasks: 1,
-    role: "Senior Dev",
-    permission: "Editor",
-  },
-  {
-    id: "4",
-    name: "Emma Smith",
-    email: "emmasmith@gmail.com",
-    lastActive: "1 day ago",
-    assignedTasks: 3,
-    role: "Senior designer",
-    permission: "Viewer",
-  },
-  {
-    id: "5",
-    name: "Tom Green",
-    email: "tomgreen@gmail.com",
-    lastActive: "1 week ago",
-    assignedTasks: 2,
-    role: "Junior designer",
-    permission: "Viewer",
-  },
-]
-
 export function TeamPage() {
-  const [members, setMembers] = useState<TeamMember[]>(initialMembers)
-  const [isInviteOpen, setIsInviteOpen] = useState(false)
-  const [search, setSearch] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const params = useParams()
+  const projectId = params.id as string
+  
+  const { members, loading, error, fetchMembers, subscribeToTeamChanges } = useTeamStore()
+  
+  useEffect(() => {
+    // Fetch initial data
+    fetchMembers(projectId)
+    
+    // Subscribe to real-time updates
+    const unsubscribe = subscribeToTeamChanges(projectId)
+    
+    return () => {
+      unsubscribe()
+    }
+  }, [projectId, fetchMembers, subscribeToTeamChanges])
 
-  const filteredMembers = members.filter(
-    member =>
-      member.name.toLowerCase().includes(search.toLowerCase()) ||
-      member.email.toLowerCase().includes(search.toLowerCase())
+  const filteredMembers = members.filter(member => 
+    member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.role.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  if (loading) {
+    return <div>Loading team members...</div>
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Members</h1>
-        <Button onClick={() => setIsInviteOpen(true)}>Add member</Button>
-      </div>
-      <div className="relative">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search members"
-          className="pl-8"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search team members..."
+            className="h-8 w-[150px] lg:w-[250px]"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <Button onClick={() => setInviteDialogOpen(true)}>
+          Invite member
+        </Button>
       </div>
       <TeamTable members={filteredMembers} />
-      <InviteMemberDialog open={isInviteOpen} onOpenChange={setIsInviteOpen} />
+      <InviteMemberDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        projectId={projectId}
+      />
     </div>
   )
 }

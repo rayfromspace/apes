@@ -2,13 +2,13 @@ import type { User } from './user';
 import type { Investment } from './investment';
 
 export type ProjectType = 'product' | 'service';
-export type ProjectStatus = 'active' | 'completed' | 'cancelled' | 'paused';
-export type ProjectVisibility = 'public' | 'private' | 'invitation';
-export type ProjectRole = 'founder' | 'admin' | 'member' | 'investor';
+export type ProjectStatus = 'active' | 'archived' | 'deleted';
+export type ProjectVisibility = 'private' | 'public' | 'team';
+export type ProjectRole = 'founder' | 'admin' | 'member';
 
 export interface Project {
   id: string;
-  title: string;
+  name: string;
   description: string;
   type: ProjectType;
   category: string;
@@ -16,13 +16,14 @@ export interface Project {
   status: ProjectStatus;
   visibility: ProjectVisibility;
   image_url?: string;
-  funding_goal?: number;
-  current_funding?: number;
-  required_skills?: string[];
-  progress?: number;
+  total_budget: number;
+  treasury_balance: number;
+  team_size: number;
+  active_tasks: number;
+  completed_tasks: number;
   created_at: string;
   updated_at: string;
-  team_members: TeamMember[];
+  team_members?: TeamMember[];
 }
 
 export interface TeamMember {
@@ -30,31 +31,31 @@ export interface TeamMember {
   project_id: string;
   user_id: string;
   role: ProjectRole;
-  permissions?: Record<string, any>;
+  permissions: Record<string, any>;
+  status: 'active' | 'inactive' | 'pending';
+  salary: number;
+  last_active?: string;
   created_at: string;
   updated_at: string;
   user?: User;
 }
 
 export interface CreateProjectInput {
-  title: string;
+  name: string;
   description: string;
   type: ProjectType;
   category: string;
   founder_id: string;
   status?: ProjectStatus;
   visibility?: ProjectVisibility;
-  funding_goal?: number;
-  current_funding?: number;
-  required_skills?: string[];
+  total_budget?: number;
+  treasury_balance?: number;
+  team_size?: number;
+  active_tasks?: number;
+  completed_tasks?: number;
   image_url?: string;
 }
 
 export interface ProjectWithRelations extends Project {
   founder: User;
-  // Temporarily commented out
-  // team_members: (TeamMember & { user: User })[];
-  // user: User;
-  // investments: Investment[];
-  // metrics: ProjectMetrics;
 }

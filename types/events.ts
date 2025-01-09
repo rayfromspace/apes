@@ -5,7 +5,7 @@ export interface Event {
   date: string;
   startTime: string;
   duration: number;
-  type: 'meeting' | 'review' | 'call' | 'deadline' | 'other';
+  type: 'meeting' | 'deadline' | 'other';
   projectId: string | null;
   projectName: string | null;
   location?: string | null;
@@ -22,10 +22,8 @@ export interface Event {
 }
 
 export interface EventAttendee {
-  id: string;
   eventId: string;
   userId: string;
-  status: 'pending' | 'accepted' | 'declined';
   user: {
     id: string;
     name: string;
@@ -33,5 +31,26 @@ export interface EventAttendee {
   };
 }
 
-export type CreateEventInput = Omit<Event, 'id'>;
+export interface CreateEventInput {
+  title: string;
+  description?: string;
+  date: string;
+  startTime: string;
+  duration: number;
+  type: Event['type'];
+  projectId: string;
+  projectName?: string;
+  location?: string;
+  isVirtual: boolean;
+  meetingLink?: string;
+  createdBy: {
+    id: string;
+    name: string;
+  };
+  attendees?: {
+    id: string;
+    name: string;
+  }[];
+}
+
 export type UpdateEventInput = Partial<CreateEventInput>;

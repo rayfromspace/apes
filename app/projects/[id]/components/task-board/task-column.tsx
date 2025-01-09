@@ -1,12 +1,12 @@
 import { Plus } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { TaskCard } from "./task-card"
-import type { Task } from "./task-board"
 import { useDroppable } from '@dnd-kit/core'
 import {
   SortableContext,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable'
+import { Task } from "@/lib/stores/tasks"
 
 interface TaskColumnProps {
   id: string
@@ -14,9 +14,10 @@ interface TaskColumnProps {
   count: number
   tasks: Task[]
   onTaskClick: (task: Task) => void
+  onAddClick: (status: Task['status']) => void
 }
 
-export function TaskColumn({ id, title, count, tasks, onTaskClick }: TaskColumnProps) {
+export function TaskColumn({ id, title, count, tasks, onTaskClick, onAddClick }: TaskColumnProps) {
   const { setNodeRef } = useDroppable({
     id,
     data: {
@@ -31,7 +32,7 @@ export function TaskColumn({ id, title, count, tasks, onTaskClick }: TaskColumnP
           <h3 className="font-medium">{title}</h3>
           <span className="text-muted-foreground">{count}</span>
         </div>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" onClick={() => onAddClick(id as Task['status'])}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
@@ -54,6 +55,7 @@ export function TaskColumn({ id, title, count, tasks, onTaskClick }: TaskColumnP
         <Button
           variant="outline"
           className="w-full justify-start text-muted-foreground"
+          onClick={() => onAddClick(id as Task['status'])}
         >
           <Plus className="mr-2 h-4 w-4" />
           Add task

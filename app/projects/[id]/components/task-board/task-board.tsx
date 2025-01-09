@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from "react"
-import { Plus, Filter } from 'lucide-react'
+import { useEffect, useState } from "react"
+import { Plus } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { TaskColumn } from "./task-column"
 import { TaskDialog } from "./task-dialog"
@@ -16,65 +16,40 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-
-export interface Task {
-  id: string
-  title: string
-  status: "todo" | "doing" | "done"
-  priority: "High" | "Low"
-  assignees: string[]
-  dateRange: string
-  description?: string
-}
-
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Design new landing page",
-    status: "todo",
-    priority: "Low",
-    assignees: ["UN"],
-    dateRange: "Nov 24 - Nov 30",
-  },
-  {
-    id: "2",
-    title: "Design new landing page",
-    status: "todo",
-    priority: "Low",
-    assignees: ["UN", "DA"],
-    dateRange: "Nov 24 - Nov 30",
-  },
-  {
-    id: "3",
-    title: "Design new landing page",
-    status: "todo",
-    priority: "Low",
-    assignees: ["UN", "DA"],
-    dateRange: "Nov 24 - Nov 30",
-  },
-  {
-    id: "4",
-    title: "Design new landing page",
-    status: "doing",
-    priority: "High",
-    assignees: ["UN", "DA"],
-    dateRange: "Nov 24 - Nov 30",
-  },
-  {
-    id: "5",
-    title: "Design new landing page",
-    status: "done",
-    priority: "Low",
-    assignees: ["UN"],
-    dateRange: "Nov 24 - Nov 30",
-  },
-]
+import { useTaskStore, Task } from "@/lib/stores/tasks"
+import { useParams } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 export function TaskBoard() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const params = useParams()
+  const projectId = params.id as string
+  const { tasks, fetchTasks, reorderTasks } = useTaskStore()
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [initialStatus, setInitialStatus] = useState<Task['status']>("todo")
+
+  useEffect(() => {
+    fetchTasks(projectId)
+  }, [projectId, fetchTasks])
+
+  useEffect(() => {
+    const subscription = supabase
+      .channel('tasks')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'tasks',
+        filter: `project_id=eq.${projectId}`
+      }, () => {
+        fetchTasks(projectId)
+      })
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [projectId, fetchTasks])
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -84,49 +59,48 @@ export function TaskBoard() {
   )
 
   const todoTasks = tasks.filter(task => task.status === "todo")
-  const doingTasks = tasks.filter(task => task.status === "doing")
-  const doneTasks = tasks.filter(task => task.status === "done")
+  const inProgressTasks = tasks.filter(task => task.status === "in_progress")
+  const completedTasks = tasks.filter(task => task.status === "completed")
 
-  const handleDragStart = (event: any) => {
+  const handleDragStart = (event) => {
     setActiveId(event.active.id)
   }
 
-  const handleDragEnd = (event: any) => {
+  const handleDragEnd = async (event) => {
     const { active, over } = event
 
     if (!over) return
 
-    if (active.id !== over.id) {
-      setTasks((tasks) => {
-        const oldIndex = tasks.findIndex((task) => task.id === active.id)
-        const newIndex = tasks.findIndex((task) => task.id === over.id)
-        
-        return arrayMove(tasks, oldIndex, newIndex).map(task => {
-          if (task.id === active.id) {
-            return {
-              ...task,
-              status: over.data.current?.columnId || task.status
-            }
-          }
-          return task
-        })
-      })
+    const activeTask = tasks.find(task => task.id === active.id)
+    const overColumn = over.data?.current?.columnId
+
+    if (activeTask && overColumn && activeTask.status !== overColumn) {
+      await reorderTasks(projectId, activeTask.id, overColumn)
     }
 
     setActiveId(null)
   }
 
-  const activeTask = activeId ? tasks.find(task => task.id === activeId) : null
+  const handleDragCancel = () => {
+    setActiveId(null)
+  }
+
+  const getActiveTask = () => {
+    return tasks.find(task => task.id === activeId)
+  }
+
+  const handleAddTask = (status: Task['status']) => {
+    setInitialStatus(status)
+    setIsNewTaskOpen(true)
+  }
 
   return (
-    <div className="flex-1 space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <Button onClick={() => setIsNewTaskOpen(true)}>
+    <div className="px-4 md:px-8">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Tasks</h2>
+        <Button onClick={() => handleAddTask("todo")}>
           <Plus className="mr-2 h-4 w-4" />
-          Add task
-        </Button>
-        <Button variant="outline" size="icon">
-          <Filter className="h-4 w-4" />
+          Add Task
         </Button>
       </div>
 
@@ -135,51 +109,72 @@ export function TaskBoard() {
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <TaskColumn 
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <TaskColumn
             id="todo"
-            title="To do" 
-            tasks={todoTasks}
+            title="To Do"
             count={todoTasks.length}
+            tasks={todoTasks}
             onTaskClick={setSelectedTask}
+            onAddClick={handleAddTask}
           />
-          <TaskColumn 
-            id="doing"
-            title="Doing" 
-            tasks={doingTasks}
-            count={doingTasks.length}
+          <TaskColumn
+            id="in_progress"
+            title="In Progress"
+            count={inProgressTasks.length}
+            tasks={inProgressTasks}
             onTaskClick={setSelectedTask}
+            onAddClick={handleAddTask}
           />
-          <TaskColumn 
-            id="done"
-            title="Done" 
-            tasks={doneTasks}
-            count={doneTasks.length}
+          <TaskColumn
+            id="completed"
+            title="Completed"
+            count={completedTasks.length}
+            tasks={completedTasks}
             onTaskClick={setSelectedTask}
+            onAddClick={handleAddTask}
           />
         </div>
 
         <DragOverlay>
           {activeId ? (
-            <TaskCard 
-              task={tasks.find(task => task.id === activeId)!}
+            <TaskCard
+              task={getActiveTask()}
               onClick={() => {}}
             />
           ) : null}
         </DragOverlay>
       </DndContext>
 
-      <TaskDialog 
-        open={isNewTaskOpen} 
-        onOpenChange={setIsNewTaskOpen}
+      <TaskDialog
+        open={isNewTaskOpen}
+        onOpenChange={(open, success) => {
+          console.log('TaskDialog onOpenChange:', { open, success });
+          setIsNewTaskOpen(open);
+          if (!open && success) {
+            console.log('Refreshing tasks after successful creation');
+            fetchTasks(projectId);
+          }
+        }}
+        projectId={projectId}
+        initialStatus={initialStatus}
       />
 
       {selectedTask && (
-        <TaskDialog 
+        <TaskDialog
           task={selectedTask}
-          open={Boolean(selectedTask)}
-          onOpenChange={() => setSelectedTask(null)}
+          open={!!selectedTask}
+          onOpenChange={(open, success) => {
+            console.log('Edit TaskDialog onOpenChange:', { open, success });
+            setSelectedTask(null);
+            if (!open && success) {
+              console.log('Refreshing tasks after successful edit');
+              fetchTasks(projectId);
+            }
+          }}
+          projectId={projectId}
         />
       )}
     </div>

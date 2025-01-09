@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Clock, CheckCircle2, RotateCcw, Users2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -11,11 +11,15 @@ import {
 } from "@/components/ui/hover-card"
 import { Badge } from "@/components/ui/badge"
 import { UserAvatar } from "@/components/shared/user-avatar"
+import { useTaskStore, Task } from "@/lib/stores/tasks"
+import { useTeamStore, TeamMember } from "@/lib/stores/team-store"
+import { useParams, useRouter } from "next/navigation"
+import { createClientComponentClient } from "@/lib/supabase"
 
 interface MetricCardProps {
   icon: React.ReactNode
   label: string
-  value: string
+  value: string | number
   className?: string
   hoverContent: React.ReactNode
   onClick?: () => void
@@ -62,69 +66,24 @@ function MetricCard({
   )
 }
 
-// Demo data for hover states
-const TASKS = [
-  {
-    id: "1",
-    title: "Update API Documentation",
-    status: "In Progress",
-    assignee: {
-      id: "1",
-      name: "Sarah Chen",
-      avatar: "https://avatar.vercel.sh/sarah",
-      role: "Developer"
-    },
-    dueDate: "Today",
-    priority: "high"
-  },
-  {
-    id: "2",
-    title: "Fix Authentication Bug",
-    status: "In Progress",
-    assignee: {
-      id: "2",
-      name: "Alex Thompson",
-      avatar: "https://avatar.vercel.sh/alex",
-      role: "Engineer"
-    },
-    dueDate: "Tomorrow",
-    priority: "medium"
-  }
-]
-
-const TEAM_MEMBERS = [
-  {
-    id: "1",
-    name: "Sarah Chen",
-    avatar: "https://avatar.vercel.sh/sarah",
-    role: "Developer",
-    status: "online"
-  },
-  {
-    id: "2",
-    name: "Alex Thompson",
-    avatar: "https://avatar.vercel.sh/alex",
-    role: "Engineer",
-    status: "offline"
-  }
-]
-
-function TasksHoverContent() {
+function TasksHoverContent({ tasks }: { tasks: Task[] }) {
   return (
     <div className="space-y-3 p-4">
       <h4 className="font-semibold text-sm">Current Tasks</h4>
-      {TASKS.map((task) => (
+      {tasks.slice(0, 3).map((task) => (
         <div key={task.id} className="flex items-center justify-between">
           <div className="space-y-1">
             <p className="font-medium text-sm">{task.title}</p>
             <div className="flex items-center gap-2">
-              <UserAvatar 
-                user={task.assignee}
-                showHoverCard={true}
-                size="sm"
-              />
+              {task.assignee && (
+                <UserAvatar 
+                  user={task.assignee}
+                  showHoverCard={true}
+                  size="sm"
+                />
+              )}
               <span className="text-xs text-muted-foreground">
-                Due {task.dueDate}
+                Due {new Date(task.due_date).toLocaleDateString()}
               </span>
             </div>
           </div>
@@ -137,26 +96,32 @@ function TasksHoverContent() {
   )
 }
 
-function TeamMembersHoverContent() {
+function TeamMembersHoverContent({ members }: { members: TeamMember[] }) {
   return (
     <div className="space-y-3 p-4">
       <h4 className="font-semibold text-sm">Team Members</h4>
-      {TEAM_MEMBERS.map((member) => (
+      {members.map((member) => (
         <div key={member.id} className="flex items-center gap-3">
           <UserAvatar 
-            user={member}
+            user={{
+              id: member.userId,
+              name: member.name,
+              email: member.email,
+              image: null
+            }}
             showHoverCard={true}
             size="md"
           />
           <div>
             <p className="text-sm font-medium">{member.name}</p>
-            <p className="text-xs text-muted-foreground">{member.role}</p>
+            <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
           </div>
           <Badge 
-            variant={member.status === 'online' ? 'success' : 'secondary'}
+            variant={member.permission === 'Project Admin' ? 'default' : 
+                    member.permission === 'Editor' ? 'secondary' : 'outline'}
             className="ml-auto"
           >
-            {member.status}
+            {member.permission}
           </Badge>
         </div>
       ))}
@@ -165,42 +130,98 @@ function TeamMembersHoverContent() {
 }
 
 export function ProjectStats() {
-  const [showTasksDialog, setShowTasksDialog] = useState(false)
-  const [showTeamDialog, setShowTeamDialog] = useState(false)
+  const params = useParams()
+  const router = useRouter()
+  const projectId = params.id as string
+  const { tasks, fetchTasks } = useTaskStore()
+  const { members, fetchMembers } = useTeamStore()
+  const [project, setProject] = useState<any>(null)
+
+  useEffect(() => {
+    if (projectId) {
+      fetchTasks(projectId)
+      fetchMembers(projectId)
+      loadProject()
+    }
+  }, [projectId])
+
+  async function loadProject() {
+    const supabase = createClientComponentClient()
+    const { data: project } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .single()
+    
+    if (project) {
+      setProject(project)
+    }
+  }
+
+  const activeTasks = tasks.filter(t => !t.completed).length
+  const completedTasks = tasks.filter(t => t.completed).length
+  const activeMembers = members.filter(m => m.status === 'active').length
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <MetricCard
-        icon={<Clock className="h-4 w-4 text-blue-600" />}
-        label="Total Tasks"
-        value="24"
-        className="bg-blue-50/50 dark:bg-blue-950/50"
-        hoverContent={<TasksHoverContent />}
-        onClick={() => setShowTasksDialog(true)}
+        icon={<Clock className="h-4 w-4 text-blue-500" />}
+        label="Active Tasks"
+        value={project?.active_tasks || 0}
+        className="bg-blue-50/50"
+        hoverContent={
+          <TasksHoverContent
+            tasks={tasks.filter(t => !t.completed)}
+          />
+        }
+        onClick={() => router.push(`/projects/${projectId}/tasks`)}
       />
+
       <MetricCard
-        icon={<RotateCcw className="h-4 w-4 text-yellow-600" />}
-        label="In Progress"
-        value="8"
-        className="bg-yellow-50/50 dark:bg-yellow-950/50"
-        hoverContent={<TasksHoverContent />}
-        onClick={() => setShowTasksDialog(true)}
+        icon={<CheckCircle2 className="h-4 w-4 text-green-500" />}
+        label="Completed Tasks"
+        value={project?.completed_tasks || 0}
+        className="bg-green-50/50"
+        hoverContent={
+          <TasksHoverContent
+            tasks={tasks.filter(t => t.completed)}
+          />
+        }
+        onClick={() => router.push(`/projects/${projectId}/tasks?filter=completed`)}
       />
+
       <MetricCard
-        icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
-        label="Completed"
-        value="16"
-        className="bg-green-50/50 dark:bg-green-950/50"
-        hoverContent={<TasksHoverContent />}
-        onClick={() => setShowTasksDialog(true)}
+        icon={<Users2 className="h-4 w-4 text-purple-500" />}
+        label="Team Size"
+        value={project?.team_size || 0}
+        className="bg-purple-50/50"
+        hoverContent={
+          <TeamMembersHoverContent members={members} />
+        }
+        onClick={() => router.push(`/projects/${projectId}/team`)}
       />
+
       <MetricCard
-        icon={<Users2 className="h-4 w-4 text-purple-600" />}
-        label="Team Members"
-        value="12"
-        className="bg-purple-50/50 dark:bg-purple-950/50"
-        hoverContent={<TeamMembersHoverContent />}
-        onClick={() => setShowTeamDialog(true)}
+        icon={<RotateCcw className="h-4 w-4 text-orange-500" />}
+        label="Treasury Balance"
+        value={`$${project?.treasury_balance?.toLocaleString() || 0}`}
+        className="bg-orange-50/50"
+        hoverContent={
+          <div className="space-y-2">
+            <p className="font-semibold">Project Budget</p>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span>Total Budget:</span>
+                <span>${project?.total_budget?.toLocaleString() || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Treasury Balance:</span>
+                <span>${project?.treasury_balance?.toLocaleString() || 0}</span>
+              </div>
+            </div>
+          </div>
+        }
+        onClick={() => router.push(`/projects/${projectId}/budget`)}
       />
     </div>
   )
