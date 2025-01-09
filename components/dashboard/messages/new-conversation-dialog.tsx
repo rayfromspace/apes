@@ -15,35 +15,67 @@ import { Label } from "@/components/ui/label";
 import { Search } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { useMessagesStore } from "@/lib/stores/messages-store";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { User } from "@/types/user";
 
 interface NewConversationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId: string;
 }
 
-interface User {
-  id: string;
-  name: string;
-  avatar?: string;
-}
-
-// Demo users - replace with real data from your backend
-const DEMO_USERS: User[] = [
-  { id: "1", name: "Alice Johnson", avatar: "/avatars/01.png" },
-  { id: "2", name: "Bob Smith", avatar: "/avatars/02.png" },
-  { id: "3", name: "Charlie Brown", avatar: "/avatars/03.png" },
-  { id: "4", name: "Diana Prince", avatar: "/avatars/04.png" },
-];
-
-export function NewConversationDialog({ open, onOpenChange }: NewConversationDialogProps) {
+export function NewConversationDialog({ open, onOpenChange, projectId }: NewConversationDialogProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedUsers, setSelectedUsers] = React.useState<User[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [users, setUsers] = React.useState<User[]>([]);
+  const { createChat } = useMessagesStore();
 
-  const filteredUsers = DEMO_USERS.filter(
+  // Fetch project members
+  React.useEffect(() => {
+    const fetchProjectMembers = async () => {
+      const supabase = createClientComponentClient();
+      const { data: members, error } = await supabase
+        .from('team_members')
+        .select(`
+          user:user_id (
+            id,
+            email,
+            raw_user_meta_data
+          )
+        `)
+        .eq('project_id', projectId);
+
+      if (error) {
+        console.error('Error fetching project members:', error);
+        return;
+      }
+
+      const projectUsers = members
+        .map(member => member.user)
+        .filter((user): user is User => !!user)
+        .map(user => ({
+          id: user.id,
+          email: user.email || '',
+          name: user.raw_user_meta_data?.full_name || user.email || 'Unknown User',
+          avatar: user.raw_user_meta_data?.avatar_url
+        }));
+
+      setUsers(projectUsers);
+    };
+
+    if (open) {
+      fetchProjectMembers();
+    }
+  }, [projectId, open]);
+
+  const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      (user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+       user.email?.toLowerCase().includes(searchQuery.toLowerCase())) &&
       !selectedUsers.some((selected) => selected.id === user.id)
   );
 
@@ -56,7 +88,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
     setSelectedUsers(selectedUsers.filter((user) => user.id !== userId));
   };
 
-  const handleStartConversation = () => {
+  const handleStartConversation = async () => {
     if (selectedUsers.length === 0) {
       toast({
         title: "Select Users",
@@ -66,11 +98,37 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       return;
     }
 
-    // TODO: Implement conversation creation logic
-    console.log("Starting conversation with:", selectedUsers);
-    onOpenChange(false);
-    setSelectedUsers([]);
-    setSearchQuery("");
+    setLoading(true);
+    try {
+      const chatName = selectedUsers.length === 1 
+        ? undefined // For direct messages, we don't need a name
+        : `${selectedUsers.map(u => u.name.split(' ')[0]).join(', ')}`;
+
+      await createChat(
+        projectId,
+        chatName,
+        selectedUsers.length === 1 ? 'direct' : 'group',
+        selectedUsers.map(u => u.id)
+      );
+
+      toast({
+        title: "Success",
+        description: "Conversation created successfully.",
+      });
+
+      onOpenChange(false);
+      setSelectedUsers([]);
+      setSearchQuery("");
+    } catch (error) {
+      console.error('Error creating chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create conversation. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -111,7 +169,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
             <div className="relative mt-1.5">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Type a name..."
+                placeholder="Type a name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8"
@@ -133,6 +191,11 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
                     showHoverCard={false}
                   />
                   <span className="text-sm">{user.name}</span>
+                  {user.email && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {user.email}
+                    </span>
+                  )}
                 </button>
               ))}
               {filteredUsers.length === 0 && searchQuery && (
@@ -146,8 +209,9 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
           <Button
             className="w-full"
             onClick={handleStartConversation}
+            disabled={loading}
           >
-            Start Conversation
+            {loading ? "Creating..." : "Start Conversation"}
           </Button>
         </div>
       </DialogContent>

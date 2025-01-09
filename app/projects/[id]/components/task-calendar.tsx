@@ -5,34 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { Plus, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
-import { format } from "date-fns"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { format, parseISO } from "date-fns"
+import { Dialog, DialogTrigger } from "@/components/ui/dialog"
+import { useCalendarStore } from "@/lib/stores/calendar-store"
+import { CreateEventDialog } from "./calendar/create-event-dialog"
 
-interface Task {
-  id: string
-  title: string
-  description: string
-  date: string
-  startTime: string
-  duration: string
-  type: 'task' | 'meeting' | 'review' | 'deadline'
+interface TaskCalendarProps {
+  projectId: string
 }
 
 const getDaysForCurrentWeek = () => {
@@ -51,143 +30,8 @@ const getDaysForCurrentWeek = () => {
   ]
 }
 
-interface CreateTaskDialogProps {
-  onClose: () => void
-}
-
-function CreateTaskDialog({ onClose }: CreateTaskDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    date: format(new Date(), 'yyyy-MM-dd'),
-    startTime: format(new Date(), 'HH:mm'),
-    duration: "60",
-    type: "task" as Task["type"],
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    try {
-      // TODO: Implement task creation
-      onClose()
-    } catch (error) {
-      console.error('Error creating task:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <DialogContent>
-      <form onSubmit={handleSubmit}>
-        <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Task Title</Label>
-            <Input
-              id="title"
-              placeholder="Enter task title"
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={formData.startTime}
-                onChange={(e) =>
-                  setFormData({ ...formData, startTime: e.target.value })
-                }
-                required
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="duration">Duration (minutes)</Label>
-            <Select
-              value={formData.duration}
-              onValueChange={(value) =>
-                setFormData({ ...formData, duration: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select duration" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="15">15 minutes</SelectItem>
-                <SelectItem value="30">30 minutes</SelectItem>
-                <SelectItem value="45">45 minutes</SelectItem>
-                <SelectItem value="60">1 hour</SelectItem>
-                <SelectItem value="90">1.5 hours</SelectItem>
-                <SelectItem value="120">2 hours</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="type">Task Type</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value) =>
-                setFormData({ ...formData, type: value as Task["type"] })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select task type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="task">Task</SelectItem>
-                <SelectItem value="meeting">Meeting</SelectItem>
-                <SelectItem value="review">Review</SelectItem>
-                <SelectItem value="deadline">Deadline</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Add task description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Creating..." : "Create Task"}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  )
-}
-
-export function TaskCalendar() {
-  const [tasks] = useState<Task[]>([]) // TODO: Fetch tasks from API
+export function TaskCalendar({ projectId }: TaskCalendarProps) {
+  const { events, loading, fetchEvents, subscribeToEvents } = useCalendarStore()
   const [view, setView] = useState<'week' | 'day'>('week')
   const [startDayIndex, setStartDayIndex] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
@@ -205,10 +49,20 @@ export function TaskCalendar() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const getTasksForDay = (day: string) => {
-    return tasks.filter(task => {
-      const taskDate = new Date(task.date)
-      const dayName = format(taskDate, 'EEEE')
+  useEffect(() => {
+    if (projectId) {
+      fetchEvents(projectId)
+      const unsubscribe = subscribeToEvents(projectId)
+      return () => {
+        unsubscribe()
+      }
+    }
+  }, [projectId, fetchEvents, subscribeToEvents])
+
+  const getEventsForDay = (day: string) => {
+    return events.filter(event => {
+      const eventDate = new Date(event.date)
+      const dayName = format(eventDate, 'EEEE')
       return dayName === day
     })
   }
@@ -234,7 +88,7 @@ export function TaskCalendar() {
               Day
             </Button>
           </div>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <Dialog>
             <DialogTrigger asChild>
               <Button 
                 variant="outline"
@@ -243,7 +97,11 @@ export function TaskCalendar() {
                 <Plus className="h-4 w-4" />
               </Button>
             </DialogTrigger>
-            <CreateTaskDialog onClose={() => setShowCreateDialog(false)} />
+            <CreateEventDialog
+              projectId={projectId}
+              onClose={() => setShowCreateDialog(false)}
+              open={showCreateDialog}
+            />
           </Dialog>
         </div>
       </CardHeader>
@@ -279,21 +137,21 @@ export function TaskCalendar() {
                     <div className="hidden sm:block md:hidden text-sm font-medium mb-1">{day.short}</div>
                     <div className="sm:hidden text-sm font-medium mb-1">{day.initial}</div>
                     <div className="text-2xl font-bold">{day.date}</div>
-                    {getTasksForDay(day.name).map(task => (
+                    {getEventsForDay(day.name).map(event => (
                       <div 
-                        key={task.id}
+                        key={event.id}
                         className={cn(
                           "mt-2 p-2 rounded text-xs",
-                          task.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
-                          task.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
-                          task.type === 'deadline' ? "bg-red-100 dark:bg-red-900/50" :
+                          event.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
+                          event.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
+                          event.type === 'deadline' ? "bg-red-100 dark:bg-red-900/50" :
                           "bg-purple-100 dark:bg-purple-900/50"
                         )}
                       >
-                        <div className="font-medium">{task.title}</div>
+                        <div className="font-medium">{event.title}</div>
                         <div className="text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {task.startTime}
+                          {format(parseISO(event.startTime), 'HH:mm')}
                         </div>
                       </div>
                     ))}
@@ -327,12 +185,17 @@ export function TaskCalendar() {
                   const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
                   const amPm = isPastNoon ? 'PM' : 'AM'
                   
+                  const hourEvents = events.filter(event => {
+                    const eventHour = parseInt(event.startTime.split(':')[0])
+                    return format(parseISO(event.date), 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd') && eventHour === hour
+                  })
+                  
                   return (
                     <Card 
                       key={hour} 
                       className={cn(
                         "p-4 hover:shadow-md cursor-pointer transition-all hover:bg-accent",
-                        hour >= 9 && hour <= 17 ? "bg-accent/5" : "" // Highlight working hours
+                        hour >= 9 && hour <= 17 ? "bg-accent/5" : ""
                       )}
                     >
                       <div className="flex items-center justify-between">
@@ -344,24 +207,26 @@ export function TaskCalendar() {
                             {formattedHour}:00
                           </span>
                         </div>
-                        {getTasksForDay(format(today, 'EEEE')).filter(task => task.startTime === `${formattedHour}:00`).map(task => (
-                          <div 
-                            key={task.id}
-                            className={cn(
-                              "rounded-md p-2 text-xs",
-                              task.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
-                              task.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
-                              task.type === 'deadline' ? "bg-red-100 dark:bg-red-900/50" :
-                              "bg-purple-100 dark:bg-purple-900/50"
-                            )}
-                          >
-                            <div className="font-medium">{task.title}</div>
-                            <div className="text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {task.startTime}
+                        <div className="flex gap-2">
+                          {hourEvents.map(event => (
+                            <div 
+                              key={event.id}
+                              className={cn(
+                                "rounded-md p-2 text-xs",
+                                event.type === 'meeting' ? "bg-blue-100 dark:bg-blue-900/50" :
+                                event.type === 'review' ? "bg-green-100 dark:bg-green-900/50" :
+                                event.type === 'deadline' ? "bg-red-100 dark:bg-red-900/50" :
+                                "bg-purple-100 dark:bg-purple-900/50"
+                              )}
+                            >
+                              <div className="font-medium">{event.title}</div>
+                              <div className="text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(parseISO(event.startTime), 'HH:mm')}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     </Card>
                   )

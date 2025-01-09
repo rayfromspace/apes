@@ -15,9 +15,15 @@ import {
   Users,
   Calendar,
   Wallet,
-  BarChart,
+  Activity,
+  Coins,
 } from "lucide-react";
 import { CreatePostDialog } from "./dialogs/create-post-dialog";
+import { CreateProposalDialog } from "./dialogs/create-proposal-dialog";
+import { UserAnalyticsDialog } from "./dialogs/user-analytics-dialog";
+import { useState } from "react";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/auth/store";
 
 interface QuickAction {
   id: string;
@@ -25,105 +31,113 @@ interface QuickAction {
   description: string;
   icon: React.ElementType;
   onClick?: () => void;
-  href?: string;
   color: string;
 }
 
-const quickActions: QuickAction[] = [
-  {
-    id: "new-post",
-    title: "Create Post",
-    description: "Share a new post",
-    icon: PlusCircle,
-    color: "text-green-500",
-  },
-  {
-    id: "new-proposal",
-    title: "New Proposal",
-    description: "Submit a proposal",
-    icon: FileText,
-    href: "/proposals/create",
-    color: "text-blue-500",
-  },
-  {
-    id: "team",
-    title: "Team",
-    description: "Manage your team",
-    icon: Users,
-    href: "/team",
-    color: "text-purple-500",
-  },
-  {
-    id: "schedule",
-    title: "Schedule",
-    description: "View calendar",
-    icon: Calendar,
-    href: "/calendar",
-    color: "text-orange-500",
-  },
-  {
-    id: "investments",
-    title: "Investments",
-    description: "Track investments",
-    icon: Wallet,
-    href: "/investments",
-    color: "text-emerald-500",
-  },
-  {
-    id: "analytics",
-    title: "Analytics",
-    description: "View insights",
-    icon: BarChart,
-    href: "/analytics",
-    color: "text-cyan-500",
-  },
-];
-
 export function QuickActions() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+  const [postDialogOpen, setPostDialogOpen] = useState(false);
+  const [proposalDialogOpen, setProposalDialogOpen] = useState(false);
+  const [analyticsDialogOpen, setAnalyticsDialogOpen] = useState(false);
+
+  const quickActions: QuickAction[] = [
+    {
+      id: "new-post",
+      title: "Create Post",
+      description: "Share a new post",
+      icon: PlusCircle,
+      onClick: () => setPostDialogOpen(true),
+      color: "text-green-500",
+    },
+    {
+      id: "new-proposal",
+      title: "New Proposal",
+      description: "Submit a proposal",
+      icon: FileText,
+      onClick: () => setProposalDialogOpen(true),
+      color: "text-blue-500",
+    },
+    {
+      id: "team",
+      title: "Team",
+      description: "Manage your team",
+      icon: Users,
+      onClick: () => router.push("/team"),
+      color: "text-purple-500",
+    },
+    {
+      id: "calendar",
+      title: "Calendar",
+      description: "View schedule",
+      icon: Calendar,
+      onClick: () => router.push("/calendar"),
+      color: "text-orange-500",
+    },
+    {
+      id: "staking",
+      title: "Value Staking",
+      description: "Manage your stakes",
+      icon: Coins,
+      onClick: () => {
+        if (!isAuthenticated) {
+          toast.error("Please sign in to access staking");
+          return;
+        }
+        router.push("/staking/dashboard");
+      },
+      color: "text-pink-500",
+    },
+    {
+      id: "analytics",
+      title: "My Activity",
+      description: "View your activity stats",
+      icon: Activity,
+      onClick: () => setAnalyticsDialogOpen(true),
+      color: "text-cyan-500",
+    },
+  ];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-medium">Quick Actions</CardTitle>
-        <CardDescription>Common tasks and shortcuts</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            const button = (
-              <Button
-                key={action.id}
-                variant="outline"
-                className="h-auto flex-col items-start gap-2 p-4 hover:bg-muted/50"
-                onClick={
-                  action.href
-                    ? () => router.push(action.href || "/")
-                    : undefined
-                }
-              >
-                <div className="flex w-full items-center gap-2">
-                  <Icon className={cn("h-5 w-5", action.color)} />
-                  <span className="font-medium">{action.title}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Get started with common tasks</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {quickActions.map((action) => (
+            <Button
+              key={action.id}
+              variant="outline"
+              className="h-auto flex-col items-start gap-2 p-4 hover:bg-muted/50"
+              onClick={action.onClick}
+            >
+              <action.icon className={cn("h-5 w-5", action.color)} />
+              <div className="text-left">
+                <div className="font-semibold">{action.title}</div>
+                <div className="text-sm text-muted-foreground">
                   {action.description}
-                </span>
-              </Button>
-            );
+                </div>
+              </div>
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
 
-            if (action.id === "new-post") {
-              return (
-                <CreatePostDialog key={action.id}>{button}</CreatePostDialog>
-              );
-            }
-
-            return button;
-          })}
-        </div>
-      </CardContent>
-    </Card>
+      <CreatePostDialog 
+        open={postDialogOpen} 
+        onOpenChange={setPostDialogOpen} 
+      />
+      <CreateProposalDialog
+        open={proposalDialogOpen}
+        onOpenChange={setProposalDialogOpen}
+      />
+      <UserAnalyticsDialog 
+        open={analyticsDialogOpen}
+        onOpenChange={setAnalyticsDialogOpen}
+      />
+    </>
   );
 }
 

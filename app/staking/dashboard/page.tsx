@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -38,73 +38,123 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
 import { Coins, ArrowUpRight, ArrowDownRight, Timer, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useAuth } from "@/lib/auth/store";
+import { Database } from "@/lib/database.types";
 
 interface StakingPool {
   id: string;
   name: string;
   token: string;
   apy: number;
-  totalStaked: number;
-  minStake: number;
-  lockPeriod: string;
+  total_staked: number;
+  min_stake: number;
+  lock_period: string;
   rewards: number;
-  yourStake?: number;
+  your_stake?: number;
 }
 
-const stakingPools: StakingPool[] = [
-  {
-    id: "1",
-    name: "High Yield Pool",
-    token: "USDC",
-    apy: 12.5,
-    totalStaked: 1500000,
-    minStake: 100,
-    lockPeriod: "30 days",
-    rewards: 25000,
-    yourStake: 1000,
-  },
-  {
-    id: "2",
-    name: "Flexible Pool",
-    token: "ETH",
-    apy: 8.0,
-    totalStaked: 2500000,
-    minStake: 0.1,
-    lockPeriod: "None",
-    rewards: 15000,
-  },
-  // Add more pools as needed
-];
+interface UserStake {
+  pool_id: string;
+  amount: number;
+  rewards_earned: number;
+}
 
-const rewardHistory = [
-  { date: "2023-12-01", rewards: 120 },
-  { date: "2023-12-02", rewards: 150 },
-  { date: "2023-12-03", rewards: 180 },
-  { date: "2023-12-04", rewards: 200 },
-  { date: "2023-12-05", rewards: 190 },
-  { date: "2023-12-06", rewards: 220 },
-  { date: "2023-12-07", rewards: 250 },
-];
+interface StakingReward {
+  created_at: string;
+  amount: number;
+}
 
 export default function StakingDashboard() {
+  const supabase = createClientComponentClient<Database>();
+  const { user, isAuthenticated, isInitialized } = useAuth();
+  const [stakingPools, setStakingPools] = useState<StakingPool[]>([]);
+  const [userStakes, setUserStakes] = useState<UserStake[]>([]);
+  const [rewardHistory, setRewardHistory] = useState<StakingReward[]>([]);
   const [selectedPool, setSelectedPool] = useState<string | null>(null);
   const [stakeAmount, setStakeAmount] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const totalStaked = stakingPools.reduce(
-    (sum, pool) => sum + (pool.yourStake || 0),
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!isInitialized) return;
+      
+      try {
+        // Always fetch staking pools
+        const { data: poolsData, error: poolsError } = await supabase
+          .from('staking_pools')
+          .select('*');
+
+        if (poolsError) throw poolsError;
+
+        let finalPools = poolsData || [];
+
+        // Only fetch user-specific data if authenticated
+        if (isAuthenticated && user) {
+          // Fetch user stakes
+          const { data: stakesData, error: stakesError } = await supabase
+            .from('user_stakes')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('status', 'active');
+
+          if (stakesError) throw stakesError;
+
+          // Fetch reward history
+          const { data: rewardsData, error: rewardsError } = await supabase
+            .from('staking_rewards')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+          if (rewardsError) throw rewardsError;
+
+          // Combine pools with user stakes
+          finalPools = (poolsData || []).map((pool: StakingPool) => {
+            const userStake = stakesData?.find((stake: UserStake) => stake.pool_id === pool.id);
+            return {
+              ...pool,
+              your_stake: userStake?.amount || 0
+            };
+          });
+
+          setUserStakes(stakesData || []);
+          setRewardHistory(rewardsData || []);
+        }
+
+        setStakingPools(finalPools);
+      } catch (error) {
+        console.error('Error fetching staking data:', error);
+        toast.error('Failed to load staking data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isInitialized, isAuthenticated, user, supabase]);
+
+  const totalStaked = userStakes.reduce(
+    (sum, stake) => sum + (stake?.amount || 0),
     0
   );
-  const totalRewards = stakingPools.reduce(
-    (sum, pool) => sum + (pool.yourStake ? (pool.yourStake * pool.apy) / 100 : 0),
+
+  const totalRewards = userStakes.reduce(
+    (sum, stake) => sum + (stake?.rewards_earned || 0),
     0
   );
 
-  const handleStake = () => {
+  const handleStake = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in to stake tokens");
+      return;
+    }
+
     if (!selectedPool || !stakeAmount) {
       toast.error("Please select a pool and enter an amount");
       return;
@@ -113,16 +163,61 @@ export default function StakingDashboard() {
     const pool = stakingPools.find((p) => p.id === selectedPool);
     if (!pool) return;
 
-    if (Number(stakeAmount) < pool.minStake) {
-      toast.error(`Minimum stake amount is ${pool.minStake} ${pool.token}`);
+    if (Number(stakeAmount) < pool.min_stake) {
+      toast.error(`Minimum stake amount is ${pool.min_stake} ${pool.token}`);
       return;
     }
 
-    // Add staking logic here
-    toast.success("Successfully staked tokens!");
-    setSelectedPool(null);
-    setStakeAmount("");
+    try {
+      if (!user?.id) throw new Error("User not found");
+
+      // Insert new stake
+      const { error: stakeError } = await supabase
+        .from('user_stakes')
+        .insert({
+          user_id: user.id,
+          pool_id: selectedPool,
+          amount: Number(stakeAmount),
+          locked_until: pool.lock_period !== 'None' 
+            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+            : null
+        });
+
+      if (stakeError) throw stakeError;
+
+      // Update pool total
+      const { error: poolError } = await supabase
+        .from('staking_pools')
+        .update({ 
+          total_staked: pool.total_staked + Number(stakeAmount)
+        })
+        .eq('id', selectedPool);
+
+      if (poolError) throw poolError;
+
+      toast.success("Successfully staked tokens!");
+      setSelectedPool(null);
+      setStakeAmount("");
+      
+      // Refresh data
+      const { data: stakesData } = await supabase
+        .from('user_stakes')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (stakesData) {
+        setUserStakes(stakesData);
+      }
+    } catch (error) {
+      console.error('Error staking tokens:', error);
+      toast.error('Failed to stake tokens');
+    }
   };
+
+  if (!isInitialized) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="container mx-auto py-8 space-y-8">
@@ -140,9 +235,11 @@ export default function StakingDashboard() {
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalStaked.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              ${isAuthenticated ? totalStaked.toLocaleString() : "0"}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Across all pools
+              {isAuthenticated ? "Across all pools" : "Sign in to view"}
             </p>
           </CardContent>
         </Card>
@@ -152,9 +249,11 @@ export default function StakingDashboard() {
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalRewards.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              ${isAuthenticated ? totalRewards.toLocaleString() : "0"}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Earned from staking
+              {isAuthenticated ? "Earned from staking" : "Sign in to view"}
             </p>
           </CardContent>
         </Card>
@@ -164,7 +263,11 @@ export default function StakingDashboard() {
             <ArrowUpRight className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">10.25%</div>
+            <div className="text-2xl font-bold">
+              {stakingPools.length > 0
+                ? (stakingPools.reduce((sum, pool) => sum + pool.apy, 0) / stakingPools.length).toFixed(2)
+                : "0"}%
+            </div>
             <p className="text-xs text-muted-foreground">
               Weighted average
             </p>
@@ -212,18 +315,18 @@ export default function StakingDashboard() {
                     <div>
                       <p className="text-muted-foreground">Total Staked</p>
                       <p className="font-medium">
-                        ${pool.totalStaked.toLocaleString()}
+                        ${pool.total_staked.toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Min Stake</p>
                       <p className="font-medium">
-                        {pool.minStake} {pool.token}
+                        {pool.min_stake} {pool.token}
                       </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Lock Period</p>
-                      <p className="font-medium">{pool.lockPeriod}</p>
+                      <p className="font-medium">{pool.lock_period}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Total Rewards</p>
@@ -232,11 +335,11 @@ export default function StakingDashboard() {
                       </p>
                     </div>
                   </div>
-                  {pool.yourStake && (
+                  {isAuthenticated && pool.your_stake > 0 && (
                     <div className="pt-2 border-t">
                       <p className="text-sm text-muted-foreground">Your Stake</p>
                       <p className="font-medium">
-                        {pool.yourStake} {pool.token}
+                        {pool.your_stake} {pool.token}
                       </p>
                     </div>
                   )}
@@ -244,34 +347,44 @@ export default function StakingDashboard() {
                 <CardContent className="pt-0">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button className="w-full" variant={pool.yourStake ? "secondary" : "default"}>
-                        {pool.yourStake ? "Manage Stake" : "Stake Now"}
+                      <Button 
+                        className="w-full" 
+                        variant={isAuthenticated && pool.your_stake ? "secondary" : "default"}
+                      >
+                        {!isAuthenticated 
+                          ? "Sign in to Stake" 
+                          : pool.your_stake 
+                            ? "Manage Stake" 
+                            : "Stake Now"
+                        }
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Stake in {pool.name}</DialogTitle>
-                        <DialogDescription>
-                          Enter the amount you want to stake
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Input
-                            type="number"
-                            placeholder={`Amount in ${pool.token}`}
-                            value={stakeAmount}
-                            onChange={(e) => setStakeAmount(e.target.value)}
-                          />
-                          <p className="text-sm text-muted-foreground">
-                            Min stake: {pool.minStake} {pool.token}
-                          </p>
+                    {isAuthenticated && (
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Stake in {pool.name}</DialogTitle>
+                          <DialogDescription>
+                            Enter the amount you want to stake
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Input
+                              type="number"
+                              placeholder={`Amount in ${pool.token}`}
+                              value={stakeAmount}
+                              onChange={(e) => setStakeAmount(e.target.value)}
+                            />
+                            <p className="text-sm text-muted-foreground">
+                              Min stake: {pool.min_stake} {pool.token}
+                            </p>
+                          </div>
+                          <Button onClick={handleStake} className="w-full">
+                            Confirm Stake
+                          </Button>
                         </div>
-                        <Button onClick={handleStake} className="w-full">
-                          Confirm Stake
-                        </Button>
-                      </div>
-                    </DialogContent>
+                      </DialogContent>
+                    )}
                   </Dialog>
                 </CardContent>
               </Card>
@@ -284,26 +397,41 @@ export default function StakingDashboard() {
             <CardHeader>
               <CardTitle>Rewards History</CardTitle>
               <CardDescription>
-                Track your staking rewards over time
+                {isAuthenticated 
+                  ? "Track your staking rewards over time"
+                  : "Sign in to view your rewards history"
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={rewardHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="rewards"
-                      stroke="#8884d8"
-                      strokeWidth={2}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {isAuthenticated ? (
+                <div className="h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={rewardHistory}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="created_at" 
+                        tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                      />
+                      <YAxis />
+                      <RechartsTooltip
+                        formatter={(value: number) => [`$${value.toLocaleString()}`, 'Rewards']}
+                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="amount"
+                        stroke="#8884d8"
+                        strokeWidth={2}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-[400px]">
+                  <p className="text-muted-foreground">Sign in to view your rewards history</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

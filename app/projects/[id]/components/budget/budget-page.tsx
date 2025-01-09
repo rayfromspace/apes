@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, TrendingUp } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { BudgetStats } from "./budget-stats"
@@ -9,117 +9,35 @@ import { AddExpenseDialog } from "./add-expense-dialog"
 import { Transactions } from "./transactions"
 import { TeamSalaries } from "./team-salaries"
 import { InvestorDialog } from "./investor-dialog"
-
-export interface Expense {
-  id: string
-  description: string
-  amount: number
-  category: string
-  date: string
-  status: "pending" | "approved" | "rejected"
-  paidFromTreasury: boolean
-}
-
-export interface Transaction {
-  id: string
-  description: string
-  amount: number
-  date: string
-  type: "income" | "expense"
-}
-
-export interface TeamMember {
-  id: string
-  name: string
-  role: string
-  salary: number
-}
-
-const initialExpenses: Expense[] = [
-  {
-    id: "1",
-    description: "Team lunch meeting",
-    amount: 150.00,
-    category: "Food & Beverages",
-    date: "2024-01-15",
-    status: "approved",
-    paidFromTreasury: false
-  },
-  {
-    id: "2",
-    description: "Software licenses",
-    amount: 299.99,
-    category: "Software",
-    date: "2024-01-14",
-    status: "pending",
-    paidFromTreasury: false
-  },
-  {
-    id: "3",
-    description: "Office supplies",
-    amount: 75.50,
-    category: "Supplies",
-    date: "2024-01-13",
-    status: "approved",
-    paidFromTreasury: true
-  }
-]
-
-const initialTransactions: Transaction[] = [
-  {
-    id: "1",
-    description: "Investor funding",
-    amount: 50000,
-    date: "2024-01-01",
-    type: "income"
-  },
-  {
-    id: "2",
-    description: "Office rent",
-    amount: 2000,
-    date: "2024-01-05",
-    type: "expense"
-  },
-  {
-    id: "3",
-    description: "Client payment",
-    amount: 5000,
-    date: "2024-01-10",
-    type: "income"
-  }
-]
-
-const initialTeamMembers: TeamMember[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    role: "Project Manager",
-    salary: 5000
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    role: "Senior Developer",
-    salary: 4500
-  },
-  {
-    id: "3",
-    name: "Mike Johnson",
-    role: "Designer",
-    salary: 4000
-  }
-]
+import { useBudgetStore, type Expense } from "@/lib/stores/budget-store"
+import { useParams } from "next/navigation"
+import { useTeamStore } from "@/lib/stores/team-store"
 
 export function BudgetPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions)
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers)
+  const params = useParams()
+  const projectId = params.id as string
+  
+  const { 
+    expenses, 
+    transactions, 
+    totalBudget,
+    treasuryBalance,
+    fetchBudgetData,
+    addExpense,
+    isLoading,
+    error 
+  } = useBudgetStore()
+  
+  const { teamMembers = [] } = useTeamStore()
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false)
   const [isInvestorDialogOpen, setIsInvestorDialogOpen] = useState(false)
 
-  const totalBudget = 100000
-  const treasuryBalance = 75000
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0)
+  useEffect(() => {
+    if (projectId) {
+      fetchBudgetData(projectId)
+    }
+  }, [projectId, fetchBudgetData])
+
   const expensesFromBudget = expenses
     .filter(expense => !expense.paidFromTreasury)
     .reduce((sum, expense) => sum + expense.amount, 0)
@@ -128,7 +46,16 @@ export function BudgetPage() {
     .reduce((sum, expense) => sum + expense.amount, 0)
   const remainingBudget = totalBudget - expensesFromBudget
   const remainingTreasury = treasuryBalance - expensesFromTreasury
-  const totalSalaries = teamMembers.reduce((sum, member) => sum + member.salary, 0)
+  const totalSalaries = teamMembers?.reduce((sum, member) => sum + (member.salary || 0), 0) || 0
+
+  const handleAddExpense = async (expense: Omit<Expense, 'id'>) => {
+    await addExpense({ ...expense, projectId })
+    setIsAddExpenseOpen(false)
+  }
+
+  if (error) {
+    return <div className="p-4 text-red-500">Error loading budget data: {error}</div>
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4">
@@ -148,7 +75,7 @@ export function BudgetPage() {
       
       <BudgetStats 
         totalBudget={totalBudget}
-        totalExpenses={totalExpenses}
+        totalExpenses={expensesFromBudget + expensesFromTreasury}
         remainingBudget={remainingBudget}
         treasuryBalance={treasuryBalance}
         remainingTreasury={remainingTreasury}
@@ -165,10 +92,7 @@ export function BudgetPage() {
       <AddExpenseDialog 
         open={isAddExpenseOpen} 
         onOpenChange={setIsAddExpenseOpen}
-        onSubmit={(expense) => {
-          setExpenses([...expenses, { ...expense, id: String(expenses.length + 1) }])
-          setIsAddExpenseOpen(false)
-        }}
+        onSubmit={handleAddExpense}
       />
 
       <InvestorDialog

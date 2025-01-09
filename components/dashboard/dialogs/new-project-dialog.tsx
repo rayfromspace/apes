@@ -11,6 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -24,6 +26,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useState, useEffect } from 'react';
 
 interface ProjectFormData {
   projectName: string;
@@ -40,19 +43,13 @@ interface NewProjectDialogProps {
 }
 
 const digitalProductCategories = [
-  "Ebooks", "Software/SaaS", "Mobile and Web Applications", "Video Games", "Digital Art",
-  "Stock Photos and Videos", "Digital Music, Sounds, and Audiobooks", "Printables",
-  "Online Courses", "3D Models", "Fonts, Logos, and Design Templates", "Virtual Goods",
-  "Digital Magazines", "Customizable Templates", "Digital Stickers", "Digital Scrapbooking Kits",
-  "Interactive PDFs", "Digital Puzzles", "Augmented Reality Experiences", "Membership Sites", "Other"
+  "Video Games", "Digital Music", "Software/Apps", "Digital Art",
+  "Online Courses", "Ebooks", "Digital Templates", "Virtual Goods"
 ];
 
 const digitalServiceCategories = [
-  "Video Editing", "Consulting", "Music Label Services", "Graphic Design", "Content Creation",
-  "SEO and Digital Marketing", "Virtual Assistance", "Translation Services", "Web Development and Design",
-  "Remote Tech Support", "Online Fitness Coaching", "Educational Tutoring", "Legal Services",
-  "Voice Over and Narration", "Social Media Management", "Email Marketing", "Podcast Production",
-  "Data Analysis", "Virtual Event Planning", "Remote Therapy or Counseling", "Other"
+  "Music Production", "Video Editing", "Web Development", "Graphic Design",
+  "Content Creation", "Digital Marketing", "Virtual Assistance", "Online Coaching"
 ];
 
 const defaultTasks = [
@@ -104,6 +101,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClientComponentClient();
+  const [session, setSession] = useState<Session | null>(null);
   const [formData, setFormData] = React.useState<ProjectFormData>({
     projectName: "",
     projectDescription: "",
@@ -114,8 +112,24 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Reset form when dialog opens/closes
-  React.useEffect(() => {
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+    };
+
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase.auth]);
+
+  useEffect(() => {
     if (!open) {
       setFormData({
         projectName: "",
@@ -123,77 +137,43 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         projectType: "product",
         projectCategory: "",
       });
+      setIsSubmitting(false);
     }
   }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
-      // Validate required fields
-      if (!formData.projectName.trim()) {
+      if (!formData.projectName?.trim()) {
         throw new Error('Project name is required');
       }
-      if (!formData.projectType) {
-        throw new Error('Project type is required');
-      }
-      if (!formData.projectDescription.trim()) {
-        throw new Error('Project description is required');
-      }
-      if (!formData.projectCategory.trim()) {
-        throw new Error('Project category is required');
-      }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('Please log in again');
+      if (!session?.user) {
+        toast({
+          title: "Authentication Error",
+          description: "Please sign in to create a project",
+          variant: "destructive",
+        });
+        return;
       }
 
-      let image_url = null;
-      
-      // Upload image if provided
-      if (formData.projectImage) {
-        const fileExt = formData.projectImage.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `project-covers/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('projects')
-          .upload(filePath, formData.projectImage);
-
-        if (uploadError) {
-          throw new Error(`Failed to upload image: ${uploadError.message}`);
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('projects')
-          .getPublicUrl(filePath);
-
-        image_url = publicUrl;
-      }
-
-      // Create project with status and visibility
-      const projectData = {
-        title: formData.projectName.trim(),
+      console.log('Creating project with data:', {
+        name: formData.projectName.trim(),
         description: formData.projectDescription.trim(),
-        type: formData.projectType,
-        category: formData.projectCategory.trim(),
-        founder_id: session.user.id,
-        image_url,
-        status: 'active',
-        visibility: 'public',
-        current_funding: 0,
-        funding_goal: 10000,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+        founder_id: session.user.id
+      });
 
+      // Create project with minimal fields
       const { data: project, error: projectError } = await supabase
         .from('projects')
-        .insert(projectData)
-        .select('id, title')
+        .insert({
+          name: formData.projectName.trim(),
+          description: formData.projectDescription.trim(),
+          founder_id: session.user.id
+        })
+        .select()
         .single();
 
       if (projectError) {
@@ -201,9 +181,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         throw new Error(`Failed to create project: ${projectError.message}`);
       }
 
-      if (!project) {
-        throw new Error('Project created but failed to retrieve ID');
-      }
+      console.log('Project created successfully:', project);
 
       // Create initial team member entry for founder
       const { error: teamError } = await supabase
@@ -216,76 +194,35 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
 
       if (teamError) {
         console.error('Team member creation error:', teamError);
+        throw new Error('Failed to set up team membership');
       }
 
-      // Create default tasks
-      const tasksWithProjectId = defaultTasks.map(task => ({
-        ...task,
-        project_id: project.id,
-        creator_id: session.user.id,
-        assignee_id: session.user.id,
-      }));
-
-      const { error: tasksError } = await supabase
-        .from('tasks')
-        .insert(tasksWithProjectId);
-
-      if (tasksError) {
-        console.error('Tasks creation error:', tasksError);
-      }
-
-      // Create default events
-      const eventsWithProjectId = defaultEvents.map(event => ({
-        ...event,
-        project_id: project.id,
-        creator_id: session.user.id,
-      }));
-
-      const { error: eventsError } = await supabase
-        .from('events')
-        .insert(eventsWithProjectId);
-
-      if (eventsError) {
-        console.error('Events creation error:', eventsError);
-      }
-
-      // Create welcome message/announcement
-      const { error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          project_id: project.id,
-          sender_id: session.user.id,
-          content: `Welcome to ${formData.projectName}! 🎉\n\nI've created this project to help us collaborate effectively. Here's what you'll find:\n\n1. Tasks: I've added some initial tasks to get us started\n2. Calendar: Check out our upcoming meetings\n3. Team: You can invite team members using the "Invite" button\n\nLet's make this project a success! 🚀`,
-          type: 'announcement'
-        });
-
-      if (messageError) {
-        console.error('Message creation error:', messageError);
-      }
-
-      // Notify parent component about the new project
-      onProjectCreated?.(project);
+      console.log('Team member created successfully');
 
       toast({
-        title: "Success!",
-        description: "Project created successfully. Redirecting to project dashboard...",
+        title: "Success",
+        description: "Project created successfully!",
       });
 
-      // Close dialog first
-      onOpenChange(false);
+      if (onProjectCreated) {
+        onProjectCreated(project);
+      }
 
-      // Short delay to ensure dialog closes smoothly
+      // Close dialog and redirect
+      onOpenChange(false);
+      
+      // Ensure dialog is closed before redirecting
       setTimeout(() => {
         router.push(`/projects/${project.id}`);
         router.refresh();
-      }, 100);
+      }, 500);
 
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in project creation:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to create project',
-        variant: "destructive"
+        description: error instanceof Error ? error.message : "Failed to create project",
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -298,63 +235,26 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
     }
   };
 
-  const categories = formData.projectType === 'product' ? digitalProductCategories : digitalServiceCategories;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
+          <DialogDescription>
+            Create a new project to start collaborating with your team.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Project Name */}
           <div className="space-y-2">
             <Label htmlFor="projectName">Project Name</Label>
             <Input
               id="projectName"
               value={formData.projectName}
-              onChange={(e) => setFormData(prev => ({ ...prev, projectName: e.target.value }))}
+              onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
               placeholder="Enter project name"
             />
-          </div>
-
-          {/* Project Type */}
-          <div className="space-y-2">
-            <Label>Project Type</Label>
-            <Select
-              value={formData.projectType}
-              onValueChange={(value: 'product' | 'service') => 
-                setFormData(prev => ({ ...prev, projectType: value, projectCategory: '' }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select project type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="product">Digital Product</SelectItem>
-                <SelectItem value="service">Digital Service</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Project Category */}
-          <div className="space-y-2">
-            <Label>Category</Label>
-            <Select
-              value={formData.projectCategory}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, projectCategory: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Project Description */}
@@ -363,46 +263,98 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
             <Textarea
               id="projectDescription"
               value={formData.projectDescription}
-              onChange={(e) => setFormData(prev => ({ ...prev, projectDescription: e.target.value }))}
+              onChange={(e) => setFormData({ ...formData, projectDescription: e.target.value })}
               placeholder="Describe your project"
-              className="h-32"
+              className="h-20"
             />
+          </div>
+
+          {/* Project Type */}
+          <div className="space-y-2">
+            <Label htmlFor="projectType">Type</Label>
+            <Select
+              value={formData.projectType}
+              onValueChange={(value) => setFormData({ ...formData, projectType: value as 'product' | 'service' })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select project type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="product">Product</SelectItem>
+                <SelectItem value="service">Service</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Project Category with Hover Effect */}
+          <div className="space-y-2 relative group">
+            <Label htmlFor="projectCategory">Category</Label>
+            <Input
+              id="projectCategory"
+              value={formData.projectCategory}
+              onChange={(e) => setFormData({ ...formData, projectCategory: e.target.value })}
+              placeholder="Enter or select category"
+              className="peer"
+            />
+            <div className="hidden group-hover:block absolute z-10 w-full bg-white dark:bg-gray-800 shadow-lg rounded-md mt-1 p-2 border border-gray-200 dark:border-gray-700">
+              <div className="text-sm text-muted-foreground mb-2">Suggested categories:</div>
+              <div className="grid grid-cols-2 gap-2">
+                {formData.projectType === 'product' ? digitalProductCategories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    className="text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm"
+                    onClick={() => setFormData({ ...formData, projectCategory: category })}
+                  >
+                    {category}
+                  </button>
+                )) : digitalServiceCategories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    className="text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm"
+                    onClick={() => setFormData({ ...formData, projectCategory: category })}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Project Image */}
           <div className="space-y-2">
             <Label>Project Image</Label>
-            <div 
-              className={cn(
-                "border-2 border-dashed rounded-lg p-4 hover:bg-accent/50 cursor-pointer transition-colors",
-                "flex flex-col items-center justify-center gap-2 text-center"
-              )}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="h-8 w-8 text-muted-foreground" />
-              <div className="text-sm text-muted-foreground">
-                {formData.projectImage ? (
-                  <span>{formData.projectImage.name}</span>
-                ) : (
-                  <span>Click to upload project image</span>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
+            <div className="flex items-center space-x-4">
+              <Input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={handleImageChange}
+                ref={fileInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setFormData({ ...formData, projectImage: file });
+                  }
+                }}
               />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Image
+              </Button>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-end">
+          <DialogFooter>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Creating..." : "Create Project"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

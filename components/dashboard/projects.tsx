@@ -68,8 +68,15 @@ export function DashboardProjects() {
             users (
               id,
               email,
-              name
+              raw_user_meta_data->name,
+              raw_user_meta_data->avatar_url
             )
+          ),
+          founder:founder_id (
+            id,
+            email,
+            raw_user_meta_data->name,
+            raw_user_meta_data->avatar_url
           )
         `)
         .or(`founder_id.eq.${session.user.id},team_members.user_id.eq.${session.user.id}`)
@@ -92,16 +99,19 @@ export function DashboardProjects() {
         status: project.status || 'active',
         created_at: project.created_at,
         updated_at: project.updated_at,
+        founder: project.founder,
         founder_id: project.founder_id,
         current_funding: project.current_funding || 0,
         funding_goal: project.funding_goal || 0,
         required_skills: project.required_skills || [],
         team_members: project.team_members || [],
         image_url: project.image_url,
-        progress: project.progress || 0
+        progress: project.progress || 0,
+        role: project.founder_id === session.user.id 
+          ? 'founder'
+          : project.team_members?.find(m => m.user_id === session.user.id)?.role || 'member'
       }));
 
-      console.log('Active projects:', transformedProjects);
       setProjects(transformedProjects);
     } catch (error) {
       console.error('Error:', error);
@@ -121,11 +131,12 @@ export function DashboardProjects() {
     }
   };
 
+  // Initial load
   useEffect(() => {
     loadProjects();
   }, [user]);
 
-  // Set up real-time subscription
+  // Set up real-time subscription for project changes
   useEffect(() => {
     if (!user) return;
 
@@ -137,9 +148,10 @@ export function DashboardProjects() {
           event: '*',
           schema: 'public',
           table: 'projects',
+          filter: `founder_id=eq.${user.id}`,
         },
-        () => {
-          console.log('Project change detected, reloading...');
+        (payload) => {
+          console.log('Project change detected:', payload);
           loadProjects();
         }
       )
@@ -149,9 +161,10 @@ export function DashboardProjects() {
           event: '*',
           schema: 'public',
           table: 'team_members',
+          filter: `user_id=eq.${user.id}`,
         },
-        () => {
-          console.log('Team member change detected, reloading...');
+        (payload) => {
+          console.log('Team member change detected:', payload);
           loadProjects();
         }
       )
@@ -171,11 +184,12 @@ export function DashboardProjects() {
   }
 
   const handleProjectClick = (projectId: string) => {
-    router.push(`/projects/${projectId}`);
+    router.push(`/dashboard/${projectId}`);
   };
 
   const handleProjectCreated = (project: Project) => {
-    setProjects(prevProjects => [project, ...prevProjects]);
+    setProjects(prevProjects => [project, ...prevProjects].slice(0, MAX_ACTIVE_PROJECTS));
+    setIsDialogOpen(false);
   };
 
   return (
@@ -200,9 +214,9 @@ export function DashboardProjects() {
           <Button 
             variant="outline"
             size="sm"
-            onClick={() => router.push('/projects')}
+            onClick={() => router.push('/explore')}
           >
-            View All
+            Explore Projects
           </Button>
         </div>
       </div>
@@ -217,12 +231,12 @@ export function DashboardProjects() {
               <MainProjectCard 
                 key={project.id} 
                 project={project}
-                showAnalytics={false}
+                onClick={() => handleProjectClick(project.id)}
               />
             );
           }
 
-          if (index === projects.length) {
+          if (index === projects.length && projects.length < MAX_ACTIVE_PROJECTS) {
             return (
               <CreateProjectCard 
                 key={`create-${index}`} 
@@ -239,13 +253,13 @@ export function DashboardProjects() {
             </Card>
           );
         })}
-
-        <NewProjectDialog 
-          open={isDialogOpen} 
-          onOpenChange={handleDialogChange}
-          onProjectCreated={handleProjectCreated}
-        />
       </div>
+
+      <NewProjectDialog 
+        open={isDialogOpen} 
+        onOpenChange={handleDialogChange}
+        onProjectCreated={handleProjectCreated}
+      />
     </div>
   );
 }

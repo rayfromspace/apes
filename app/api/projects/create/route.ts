@@ -24,24 +24,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!projectData.type?.trim()) {
-      return NextResponse.json(
-        { error: { message: 'Project type is required' } },
-        { status: 400 }
-      );
-    }
-
-    // First, create the project with basic info
+    // Create project with only essential fields
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .insert({
-        title: projectData.name.trim(),
-        description: projectData.description?.trim() || '',
-        cover_image: projectData.image_url,
-        visibility: projectData.visibility || 'private',
-        status: 'draft',
-        tags: projectData.tags || [],
-        founder_id: session.user.id,
+        name: projectData.name.trim(),
+        founder_id: session.user.id
       })
       .select()
       .single();
@@ -54,36 +42,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Then update with additional fields
-    const { error: updateError } = await supabase
-      .from('projects')
-      .update({
-        slug: `${project.id}-${projectData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-        stage: projectData.type,
-        industry: projectData.category || 'Other',
-        team_size: 1,
-        project_health: 100,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', project.id);
-
-    if (updateError) {
-      console.error('Project update error:', updateError);
-      return NextResponse.json(
-        { error: { message: updateError.message || 'Failed to update project details' } },
-        { status: 500 }
-      );
-    }
-
-    // Add the creator as the founder in project_members
+    // Add the creator as the founder in team_members
     const { error: memberError } = await supabase
-      .from('project_members')
+      .from('team_members')
       .insert({
         project_id: project.id,
         user_id: session.user.id,
-        role: 'founder',
-        joined_at: new Date().toISOString()
+        role: 'founder'
       });
 
     if (memberError) {

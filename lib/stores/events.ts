@@ -8,6 +8,7 @@ interface EventStore {
   isLoading: boolean;
   error: string | null;
   fetchEvents: () => Promise<void>;
+  fetchProjectEvents: (projectId: string) => Promise<void>;
   createEvent: (event: CreateEventInput) => Promise<Event | null>;
   updateEvent: (id: string, event: Partial<Event>) => Promise<Event | null>;
   deleteEvent: (id: string) => Promise<boolean>;
@@ -67,6 +68,59 @@ export const useEventStore = create<EventStore>((set, get) => ({
     } catch (error) {
       console.error('Error fetching events:', error);
       set({ error: 'Failed to fetch events', isLoading: false });
+    }
+  },
+
+  fetchProjectEvents: async (projectId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: events, error } = await supabase
+        .from('events')
+        .select(`
+          *,
+          creator:creator_id (
+            id,
+            email
+          ),
+          attendees:event_attendees (
+            user:user_id (
+              id,
+              email
+            )
+          )
+        `)
+        .eq('project_id', projectId)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+
+      const formattedEvents: Event[] = events.map((event) => ({
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        date: format(parseISO(event.date), 'yyyy-MM-dd'),
+        startTime: format(parseISO(event.start_time), 'HH:mm'),
+        duration: event.duration,
+        type: event.type,
+        projectId: event.project_id,
+        projectName: event.project_name || 'Unknown Project',
+        location: event.location,
+        isVirtual: event.is_virtual,
+        meetingLink: event.meeting_link,
+        createdBy: {
+          id: event.creator.id,
+          name: event.creator.email,
+        },
+        attendees: event.attendees.map((attendee: any) => ({
+          id: attendee.user.id,
+          name: attendee.user.email,
+        })),
+      }));
+
+      set({ events: formattedEvents, isLoading: false });
+    } catch (error) {
+      console.error('Error fetching project events:', error);
+      set({ error: 'Failed to fetch project events', isLoading: false });
     }
   },
 
