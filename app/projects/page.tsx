@@ -62,7 +62,26 @@ export default function ProjectsPage() {
       // Get projects where user is founder
       const { data: founderProjects, error: founderError } = await supabase
         .from('projects')
-        .select('*')
+        .select(`
+          id,
+          title,
+          description,
+          type,
+          category,
+          status,
+          visibility,
+          founder_id,
+          image_url,
+          created_at,
+          team_members (
+            id,
+            role,
+            user_id,
+            user:user_id (
+              email
+            )
+          )
+        `)
         .eq('founder_id', session.user.id)
         .order('created_at', { ascending: false });
 

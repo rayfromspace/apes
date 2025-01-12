@@ -24,16 +24,24 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useState, useEffect } from 'react';
+import { InfoIcon } from 'lucide-react';
 
 interface ProjectFormData {
-  projectName: string;
-  projectDescription: string;
-  projectType: 'product' | 'service';
-  projectCategory: string;
-  projectImage?: File;
+  title: string;
+  description: string;
+  type: 'product' | 'service';
+  category: string;
+  image?: File;
 }
 
 interface NewProjectDialogProps {
@@ -103,10 +111,10 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   const supabase = createClientComponentClient();
   const [session, setSession] = useState<Session | null>(null);
   const [formData, setFormData] = React.useState<ProjectFormData>({
-    projectName: "",
-    projectDescription: "",
-    projectType: "product",
-    projectCategory: "",
+    title: "",
+    description: "",
+    type: "product",
+    category: "",
   });
   
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -132,10 +140,10 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   useEffect(() => {
     if (!open) {
       setFormData({
-        projectName: "",
-        projectDescription: "",
-        projectType: "product",
-        projectCategory: "",
+        title: "",
+        description: "",
+        type: "product",
+        category: "",
       });
       setIsSubmitting(false);
     }
@@ -146,8 +154,8 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
     setIsSubmitting(true);
 
     try {
-      if (!formData.projectName?.trim()) {
-        throw new Error('Project name is required');
+      if (!formData.title?.trim()) {
+        throw new Error('Project title is required');
       }
 
       if (!session?.user) {
@@ -160,68 +168,102 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
       }
 
       console.log('Creating project with data:', {
-        name: formData.projectName.trim(),
-        description: formData.projectDescription.trim(),
+        title: formData.title.trim(),
+        description: formData.description.trim(),
         founder_id: session.user.id
       });
 
       // Create project with minimal fields
-      const { data: project, error: projectError } = await supabase
+      const { data: project, error } = await supabase
         .from('projects')
-        .insert({
-          name: formData.projectName.trim(),
-          description: formData.projectDescription.trim(),
-          founder_id: session.user.id
-        })
+        .insert([
+          {
+            title: formData.title.trim(),
+            description: formData.description.trim(),
+            type: formData.type,
+            category: formData.category,
+            founder_id: session.user.id,
+            status: 'planning',
+            visibility: 'private'
+          }
+        ])
         .select()
         .single();
 
-      if (projectError) {
-        console.error('Project creation error:', projectError);
-        throw new Error(`Failed to create project: ${projectError.message}`);
+      if (error) throw error;
+
+      // Handle image upload if present
+      if (formData.image) {
+        const fileExt = formData.image.name.split('.').pop();
+        const filePath = `${project.id}/${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('project-images')
+          .upload(filePath, formData.image);
+
+        if (uploadError) {
+          console.error('Error uploading image:', uploadError);
+          // Continue anyway since the project was created
+        } else {
+          // Update project with image URL
+          const { data: publicUrl } = supabase.storage
+            .from('project-images')
+            .getPublicUrl(filePath);
+
+          await supabase
+            .from('projects')
+            .update({ image_url: publicUrl.publicUrl })
+            .eq('id', project.id);
+        }
       }
 
-      console.log('Project created successfully:', project);
+      // Create default tasks for the project
+      const { error: tasksError } = await supabase
+        .from('tasks')
+        .insert(
+          defaultTasks.map(task => ({
+            ...task,
+            project_id: project.id,
+            assigned_to: session.user.id
+          }))
+        );
 
-      // Create initial team member entry for founder
-      const { error: teamError } = await supabase
-        .from('team_members')
-        .insert({
-          project_id: project.id,
-          user_id: session.user.id,
-          role: 'founder'
-        });
-
-      if (teamError) {
-        console.error('Team member creation error:', teamError);
-        throw new Error('Failed to set up team membership');
+      if (tasksError) {
+        console.error('Error creating default tasks:', tasksError);
       }
 
-      console.log('Team member created successfully');
+      // Create default events for the project
+      const { error: eventsError } = await supabase
+        .from('events')
+        .insert(
+          defaultEvents.map(event => ({
+            ...event,
+            project_id: project.id,
+            organizer_id: session.user.id
+          }))
+        );
+
+      if (eventsError) {
+        console.error('Error creating default events:', eventsError);
+      }
 
       toast({
         title: "Success",
-        description: "Project created successfully!",
+        description: "Project created successfully! Redirecting to project dashboard...",
       });
 
-      if (onProjectCreated) {
-        onProjectCreated(project);
-      }
-
-      // Close dialog and redirect
+      // Close dialog first
       onOpenChange(false);
       
-      // Ensure dialog is closed before redirecting
+      // Then redirect after a short delay to ensure smooth transition
       setTimeout(() => {
         router.push(`/projects/${project.id}`);
         router.refresh();
       }, 500);
-
-    } catch (error) {
-      console.error('Error in project creation:', error);
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create project",
+        description: error.message || "Failed to create project",
         variant: "destructive",
       });
     } finally {
@@ -231,7 +273,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
-      setFormData(prev => ({ ...prev, projectImage: e.target.files![0] }));
+      setFormData(prev => ({ ...prev, image: e.target.files![0] }));
     }
   };
 
@@ -246,24 +288,24 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Project Name */}
+          {/* Project Title */}
           <div className="space-y-2">
-            <Label htmlFor="projectName">Project Name</Label>
+            <Label htmlFor="title">Project Title</Label>
             <Input
-              id="projectName"
-              value={formData.projectName}
-              onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-              placeholder="Enter project name"
+              id="title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Enter project title"
             />
           </div>
 
           {/* Project Description */}
           <div className="space-y-2">
-            <Label htmlFor="projectDescription">Description</Label>
+            <Label htmlFor="description">Description</Label>
             <Textarea
-              id="projectDescription"
-              value={formData.projectDescription}
-              onChange={(e) => setFormData({ ...formData, projectDescription: e.target.value })}
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Describe your project"
               className="h-20"
             />
@@ -271,12 +313,13 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
 
           {/* Project Type */}
           <div className="space-y-2">
-            <Label htmlFor="projectType">Type</Label>
+            <Label htmlFor="project-type">Type</Label>
             <Select
-              value={formData.projectType}
-              onValueChange={(value) => setFormData({ ...formData, projectType: value as 'product' | 'service' })}
+              value={formData.type}
+              onValueChange={(value) => setFormData({ ...formData, type: value as 'product' | 'service' })}
+              name="project-type"
             >
-              <SelectTrigger>
+              <SelectTrigger id="project-type">
                 <SelectValue placeholder="Select project type" />
               </SelectTrigger>
               <SelectContent>
@@ -286,40 +329,79 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
             </Select>
           </div>
 
-          {/* Project Category with Hover Effect */}
-          <div className="space-y-2 relative group">
-            <Label htmlFor="projectCategory">Category</Label>
-            <Input
-              id="projectCategory"
-              value={formData.projectCategory}
-              onChange={(e) => setFormData({ ...formData, projectCategory: e.target.value })}
-              placeholder="Enter or select category"
-              className="peer"
-            />
-            <div className="hidden group-hover:block absolute z-10 w-full bg-white dark:bg-gray-800 shadow-lg rounded-md mt-1 p-2 border border-gray-200 dark:border-gray-700">
-              <div className="text-sm text-muted-foreground mb-2">Suggested categories:</div>
-              <div className="grid grid-cols-2 gap-2">
-                {formData.projectType === 'product' ? digitalProductCategories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    className="text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm"
-                    onClick={() => setFormData({ ...formData, projectCategory: category })}
-                  >
-                    {category}
-                  </button>
-                )) : digitalServiceCategories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    className="text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm"
-                    onClick={() => setFormData({ ...formData, projectCategory: category })}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
+          {/* Project Category with Tooltip */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="category">Category</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 px-2">
+                      <InfoIcon className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="w-80">
+                    <div className="space-y-2">
+                      <p className="font-medium">Suggested Categories:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {formData.type === 'product' ? (
+                          <>
+                            <span>Web Development</span>
+                            <span>Mobile Development</span>
+                            <span>AI/ML</span>
+                            <span>Blockchain</span>
+                            <span>IoT</span>
+                            <span>Gaming</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Consulting</span>
+                            <span>Design</span>
+                            <span>Marketing</span>
+                            <span>Development</span>
+                            <span>Content</span>
+                            <span>Support</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
+            <Input
+              id="category"
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              placeholder="Enter project category"
+            />
+          </div>
+
+          {/* Project Visibility Toggle */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="visibility" className="text-sm font-medium">Project Visibility</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="visibility"
+                        disabled={true}
+                        checked={false}
+                      />
+                      <span className="text-sm text-muted-foreground">Private</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Projects must complete the planning stage before becoming public. This helps ensure quality and readiness.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Your project will remain private during the planning stage
+            </p>
           </div>
 
           {/* Project Image */}
@@ -331,12 +413,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
                 accept="image/*"
                 className="hidden"
                 ref={fileInputRef}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setFormData({ ...formData, projectImage: file });
-                  }
-                }}
+                onChange={handleImageChange}
               />
               <Button
                 type="button"
