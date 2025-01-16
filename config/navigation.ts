@@ -21,7 +21,7 @@ export const navigationConfig = {
     },
     {
       title: "Projects",
-      href: "/projects",
+      href: "/dashboard/projects",
       protected: true,
     },
     {

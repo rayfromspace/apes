@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/store";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export function ProtectedRoute({
   children,
@@ -20,11 +21,19 @@ export function ProtectedRoute({
   }, [isAuthenticated, isInitialized, pathname, router]);
 
   if (!isInitialized) {
-    return null; // Or a loading spinner
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   if (!isAuthenticated && !pathname.startsWith('/auth')) {
-    return null;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   return <>{children}</>;

@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -36,6 +35,9 @@ import {
   Lock,
   Settings,
   User,
+  Eye,
+  EyeOff,
+  Shield,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -63,44 +65,82 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Profile Settings */}
+        {/* Profile Visibility Settings */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              <CardTitle>Profile Settings</CardTitle>
+              <Eye className="h-5 w-5 text-primary" />
+              <CardTitle>Profile Visibility</CardTitle>
             </div>
             <CardDescription>
-              Manage your personal information and preferences
+              Control how your profile appears to others
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Display Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Your name"
-                  onChange={() => setIsDirty(true)}
-                />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Public Profile</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Allow others to view your profile and activity
+                  </p>
+                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Switch
+                        defaultChecked
+                        onCheckedChange={() => setIsDirty(true)}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Toggle profile visibility
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  onChange={() => setIsDirty(true)}
-                />
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Show Investment History</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Display your investment activity to other users
+                  </p>
+                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Switch
+                        onCheckedChange={() => setIsDirty(true)}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Toggle investment history visibility
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
-              <Input
-                id="bio"
-                placeholder="Tell us about yourself"
-                onChange={() => setIsDirty(true)}
-              />
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Show Portfolio Value</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Allow others to see your total portfolio value
+                  </p>
+                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Switch
+                        onCheckedChange={() => setIsDirty(true)}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Toggle portfolio value visibility
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -163,36 +203,18 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Privacy Settings */}
+        {/* Security Settings */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-primary" />
-              <CardTitle>Privacy & Security</CardTitle>
+              <Shield className="h-5 w-5 text-primary" />
+              <CardTitle>Security</CardTitle>
             </div>
             <CardDescription>
-              Manage your privacy preferences and account security
+              Manage your account security settings
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Profile Visibility</Label>
-              <Select
-                defaultValue="authenticated"
-                onValueChange={() => setIsDirty(true)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select visibility" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="authenticated">
-                    Authenticated Users
-                  </SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Two-Factor Authentication</Label>
@@ -204,12 +226,11 @@ export default function SettingsPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Switch
-                      defaultChecked={false}
                       onCheckedChange={() => setIsDirty(true)}
                     />
                   </TooltipTrigger>
                   <TooltipContent>
-                    Enable two-factor authentication
+                    Toggle 2FA
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -217,63 +238,8 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Language & Region */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary" />
-              <CardTitle>Language & Region</CardTitle>
-            </div>
-            <CardDescription>
-              Set your language and regional preferences
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Language</Label>
-                <Select
-                  defaultValue="en"
-                  onValueChange={() => setIsDirty(true)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="es">Spanish</SelectItem>
-                    <SelectItem value="fr">French</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Time Zone</Label>
-                <Select
-                  defaultValue="utc"
-                  onValueChange={() => setIsDirty(true)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select timezone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="utc">UTC</SelectItem>
-                    <SelectItem value="est">EST</SelectItem>
-                    <SelectItem value="pst">PST</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Save Button */}
-        <div className="flex justify-end gap-4">
-          <Button
-            variant="outline"
-            onClick={() => router.back()}
-          >
-            Cancel
-          </Button>
+        <div className="flex justify-end">
           <Button
             onClick={handleSave}
             disabled={!isDirty}

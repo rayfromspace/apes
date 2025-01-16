@@ -13,7 +13,6 @@ import {
   PlusCircle,
   FileText,
   Users,
-  Calendar,
   Wallet,
   Activity,
   Coins,
@@ -21,6 +20,7 @@ import {
 import { CreatePostDialog } from "./dialogs/create-post-dialog";
 import { CreateProposalDialog } from "./dialogs/create-proposal-dialog";
 import { UserAnalyticsDialog } from "./dialogs/user-analytics-dialog";
+import { NFTContractsDialog } from "./dialogs/nft-contracts-dialog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/store";
@@ -40,6 +40,7 @@ export function QuickActions() {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [proposalDialogOpen, setProposalDialogOpen] = useState(false);
   const [analyticsDialogOpen, setAnalyticsDialogOpen] = useState(false);
+  const [contractsDialogOpen, setContractsDialogOpen] = useState(false);
 
   const quickActions: QuickAction[] = [
     {
@@ -67,11 +68,11 @@ export function QuickActions() {
       color: "text-purple-500",
     },
     {
-      id: "calendar",
-      title: "Calendar",
-      description: "View schedule",
-      icon: Calendar,
-      onClick: () => router.push("/calendar"),
+      id: "contracts",
+      title: "NFT Contracts",
+      description: "View work & equity contracts",
+      icon: Wallet,
+      onClick: () => setContractsDialogOpen(true),
       color: "text-orange-500",
     },
     {
@@ -84,7 +85,7 @@ export function QuickActions() {
           toast.error("Please sign in to access staking");
           return;
         }
-        router.push("/staking/dashboard");
+        router.push("/value-stake");
       },
       color: "text-pink-500",
     },
@@ -99,29 +100,33 @@ export function QuickActions() {
   ];
 
   return (
-    <>
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Get started with common tasks</CardDescription>
+          <CardDescription>
+            Common actions you can take on the platform
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {quickActions.map((action) => (
-            <Button
-              key={action.id}
-              variant="outline"
-              className="h-auto flex-col items-start gap-2 p-4 hover:bg-muted/50"
-              onClick={action.onClick}
-            >
-              <action.icon className={cn("h-5 w-5", action.color)} />
-              <div className="text-left">
-                <div className="font-semibold">{action.title}</div>
-                <div className="text-sm text-muted-foreground">
-                  {action.description}
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {quickActions.map((action) => (
+              <Button
+                key={action.id}
+                variant="outline"
+                className="h-auto p-4 text-left flex items-start hover:bg-muted/50"
+                onClick={action.onClick}
+              >
+                <action.icon className={`h-5 w-5 ${action.color} mr-2 mt-0.5`} />
+                <div>
+                  <div className="font-semibold">{action.title}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {action.description}
+                  </div>
                 </div>
-              </div>
-            </Button>
-          ))}
+              </Button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -133,15 +138,14 @@ export function QuickActions() {
         open={proposalDialogOpen}
         onOpenChange={setProposalDialogOpen}
       />
-      <UserAnalyticsDialog 
+      <UserAnalyticsDialog
         open={analyticsDialogOpen}
         onOpenChange={setAnalyticsDialogOpen}
       />
-    </>
+      <NFTContractsDialog
+        open={contractsDialogOpen}
+        onOpenChange={setContractsDialogOpen}
+      />
+    </div>
   );
-}
-
-// Helper function for className concatenation
-function cn(...classes: string[]) {
-  return classes.filter(Boolean).join(" ");
 }

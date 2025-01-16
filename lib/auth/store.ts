@@ -28,16 +28,17 @@ export const useAuth = create<AuthState>()(
           if (error) throw error;
           if (!data?.user) throw new Error("No user data returned");
 
-          const { data: profileData } = await supabase
-            .from('users')
+          const { data: profileData, error: profileError } = await supabase
+            .from('user_profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
 
+          // Don't throw error if profile doesn't exist
           const user = {
             id: data.user.id,
             email: data.user.email!,
-            ...profileData,
+            ...(profileData || {}),
           };
 
           set({ user, isAuthenticated: true });
@@ -57,27 +58,14 @@ export const useAuth = create<AuthState>()(
               data: {
                 full_name: name,
               },
+              emailRedirectTo: `${window.location.origin}/auth/callback`,
             },
           });
 
           if (error) throw error;
           if (!data?.user) throw new Error("No user data returned");
 
-          // Create user profile
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert([
-              {
-                id: data.user.id,
-                email: data.user.email,
-                full_name: name,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            ]);
-
-          if (profileError) throw profileError;
-
+          // Don't try to fetch profile immediately after registration
           const user = {
             id: data.user.id,
             email: data.user.email!,
@@ -105,57 +93,28 @@ export const useAuth = create<AuthState>()(
 
       initialize: async () => {
         try {
-          // Check for existing session
           const { data: { session }, error } = await supabase.auth.getSession();
           
-          if (error) throw error;
-
-          if (session?.user) {
-            const { data: profileData } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            const user = {
-              id: session.user.id,
-              email: session.user.email!,
-              ...profileData,
-            };
-
-            set({ user, isAuthenticated: true, isInitialized: true });
-          } else {
+          if (!session) {
             set({ ...initialState, isInitialized: true });
+            return;
           }
 
-          // Set up auth state change listener
-          const { data: { subscription } } = await supabase.auth.onAuthStateChange(
-            async (event, session) => {
-              if (session?.user) {
-                const { data: profileData } = await supabase
-                  .from('users')
-                  .select('*')
-                  .eq('id', session.user.id)
-                  .single();
+          const { data: profileData } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-                const user = {
-                  id: session.user.id,
-                  email: session.user.email!,
-                  ...profileData,
-                };
-
-                set({ user, isAuthenticated: true, isInitialized: true });
-              } else {
-                set({ ...initialState, isInitialized: true });
-              }
-            }
-          );
-
-          return () => {
-            subscription.unsubscribe();
+          const user = {
+            id: session.user.id,
+            email: session.user.email!,
+            ...(profileData || {}),
           };
-        } catch (error: any) {
-          console.error("Initialization error:", error);
+
+          set({ user, isAuthenticated: true, isInitialized: true });
+        } catch (error) {
+          console.error("Initialize error:", error);
           set({ ...initialState, isInitialized: true });
         }
       },
@@ -173,7 +132,7 @@ export const useAuth = create<AuthState>()(
       resetPassword: async (newPassword: string) => {
         try {
           const { error } = await supabase.auth.updateUser({
-            password: newPassword
+            password: newPassword,
           });
           if (error) throw error;
         } catch (error: any) {

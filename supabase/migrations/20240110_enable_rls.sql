@@ -56,6 +56,24 @@ BEGIN
     DROP POLICY IF EXISTS "Users can view connections" ON public.connections;
     DROP POLICY IF EXISTS "Users can manage their connections" ON public.connections;
     DROP POLICY IF EXISTS "Service role can do anything with connections" ON public.connections;
+
+    -- Drop events policies
+    DROP POLICY IF EXISTS "Enable read access for project members" ON public.events;
+    DROP POLICY IF EXISTS "Enable event management for project founders" ON public.events;
+
+    -- Drop activities policies
+    DROP POLICY IF EXISTS "Enable read access for activities" ON public.activities;
+    DROP POLICY IF EXISTS "Enable activity creation" ON public.activities;
+
+    -- Drop project_stats policies
+    DROP POLICY IF EXISTS "Enable read access for project stats" ON public.project_stats;
+    DROP POLICY IF EXISTS "Enable stats update for project founders" ON public.project_stats;
+
+    -- Drop projects policies
+    DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.projects;
+    DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.projects;
+    DROP POLICY IF EXISTS "Enable update for project founders" ON public.projects;
+    DROP POLICY IF EXISTS "Enable delete for project founders" ON public.projects;
 EXCEPTION
     WHEN OTHERS THEN
         -- Do nothing, just continue
@@ -72,6 +90,9 @@ ALTER TABLE public.bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.financial_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_stats ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for user_profiles
 CREATE POLICY "Users can view all profiles"
@@ -82,66 +103,326 @@ USING (true);
 CREATE POLICY "Users can update their own profile"
 ON public.user_profiles FOR UPDATE
 TO authenticated
-USING (auth.uid() = id);
+USING (id = auth.uid());
 
 CREATE POLICY "Users can insert their own profile"
 ON public.user_profiles FOR INSERT
 TO authenticated
-WITH CHECK (auth.uid() = id);
+WITH CHECK (id = auth.uid());
 
--- Enable RLS on tables
+-- Drop existing policies
+DO $$ 
+BEGIN
+    -- Drop all existing policies
+    DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.projects;
+    DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.projects;
+    DROP POLICY IF EXISTS "Enable update for project founders" ON public.projects;
+    DROP POLICY IF EXISTS "Enable delete for project founders" ON public.projects;
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- Enable RLS on projects table
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+
+-- Drop and recreate project policies
+DROP POLICY IF EXISTS "Enable read access for public projects" ON public.projects;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.projects;
+DROP POLICY IF EXISTS "Enable update for project founders and team members" ON public.projects;
+DROP POLICY IF EXISTS "Enable delete for project founders" ON public.projects;
+
+-- Drop all existing project policies
+DROP POLICY IF EXISTS "Enable read access for public projects" ON public.projects;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.projects;
+DROP POLICY IF EXISTS "Enable update for project founders and team members" ON public.projects;
+DROP POLICY IF EXISTS "Enable delete for project founders" ON public.projects;
+
+-- Enable RLS on projects table
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+
+-- Drop all existing project policies
+DROP POLICY IF EXISTS "Enable read access for public projects" ON public.projects;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.projects;
+DROP POLICY IF EXISTS "Enable update for project founders" ON public.projects;
+DROP POLICY IF EXISTS "Enable delete for project founders" ON public.projects;
+
+-- Enable RLS on projects table
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+
+-- Drop all existing policies
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS "Enable read access for projects" ON public.projects;
+    DROP POLICY IF EXISTS "Enable insert for projects" ON public.projects;
+    DROP POLICY IF EXISTS "Enable update for projects" ON public.projects;
+    DROP POLICY IF EXISTS "Enable delete for projects" ON public.projects;
+    DROP POLICY IF EXISTS "Enable read access for team members" ON public.team_members;
+    DROP POLICY IF EXISTS "Enable insert for team members" ON public.team_members;
+    DROP POLICY IF EXISTS "Enable update for team members" ON public.team_members;
+    DROP POLICY IF EXISTS "Enable delete for team members" ON public.team_members;
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- Enable RLS
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies
-DROP POLICY IF EXISTS "Anyone can view public projects" ON public.projects;
-DROP POLICY IF EXISTS "Project founders can update their projects" ON public.projects;
-DROP POLICY IF EXISTS "Users can create projects" ON public.projects;
-DROP POLICY IF EXISTS "Project founders can delete their projects" ON public.projects;
-DROP POLICY IF EXISTS "Service role can do anything with projects" ON public.projects;
-
--- Simple project policies without circular references
-CREATE POLICY "Enable read access for authenticated users"
+-- Projects Policies
+CREATE POLICY "Enable read access for projects"
 ON public.projects
 FOR SELECT
 TO authenticated
-USING (true);
+USING (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles up
+        WHERE up.id = auth.uid()
+        AND (
+            projects.visibility = 'public'
+            OR projects.founder_id = up.id
+        )
+    )
+);
 
-CREATE POLICY "Enable insert for authenticated users"
+CREATE POLICY "Enable insert for projects"
 ON public.projects
 FOR INSERT
 TO authenticated
-WITH CHECK (auth.uid() = founder_id);
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles up
+        WHERE up.id = auth.uid()
+        AND founder_id = up.id
+    )
+);
 
-CREATE POLICY "Enable update for project founders"
+CREATE POLICY "Enable update for projects"
 ON public.projects
 FOR UPDATE
 TO authenticated
-USING (auth.uid() = founder_id)
-WITH CHECK (auth.uid() = founder_id);
+USING (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles up
+        WHERE up.id = auth.uid()
+        AND founder_id = up.id
+    )
+);
 
-CREATE POLICY "Enable delete for project founders"
+CREATE POLICY "Enable delete for projects"
 ON public.projects
 FOR DELETE
 TO authenticated
-USING (auth.uid() = founder_id);
+USING (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles up
+        WHERE up.id = auth.uid()
+        AND founder_id = up.id
+    )
+);
 
--- Team members policies
+-- Team Members Policies
 CREATE POLICY "Enable read access for team members"
 ON public.team_members
 FOR SELECT
 TO authenticated
-USING (true);
+USING (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles up
+        WHERE up.id = auth.uid()
+        AND (
+            team_members.user_id = up.id
+            OR EXISTS (
+                SELECT 1 FROM public.projects p
+                WHERE p.id = team_members.project_id
+                AND p.founder_id = up.id
+            )
+        )
+    )
+);
+
+CREATE POLICY "Enable insert for team members"
+ON public.team_members
+FOR INSERT
+TO authenticated
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles up
+        JOIN public.projects p ON p.founder_id = up.id
+        WHERE up.id = auth.uid()
+        AND p.id = project_id
+    )
+);
+
+CREATE POLICY "Enable update for team members"
+ON public.team_members
+FOR UPDATE
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles up
+        JOIN public.projects p ON p.founder_id = up.id
+        WHERE up.id = auth.uid()
+        AND p.id = project_id
+    )
+);
+
+CREATE POLICY "Enable delete for team members"
+ON public.team_members
+FOR DELETE
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles up
+        JOIN public.projects p ON p.founder_id = up.id
+        WHERE up.id = auth.uid()
+        AND p.id = project_id
+    )
+);
+
+-- Grant necessary permissions
+GRANT ALL ON public.projects TO authenticated;
+GRANT ALL ON public.team_members TO authenticated;
+
+-- Team members policies
+DO $$ 
+BEGIN
+    -- Drop all existing policies
+    DROP POLICY IF EXISTS "team_members_select_policy" ON public.team_members;
+    DROP POLICY IF EXISTS "team_members_insert_policy" ON public.team_members;
+    DROP POLICY IF EXISTS "team_members_update_policy" ON public.team_members;
+    DROP POLICY IF EXISTS "team_members_delete_policy" ON public.team_members;
+    DROP POLICY IF EXISTS "team_members_manage_policy" ON public.team_members;
+    DROP POLICY IF EXISTS "Enable read access for team members" ON public.team_members;
+    DROP POLICY IF EXISTS "Enable team management for project founders" ON public.team_members;
+    DROP POLICY IF EXISTS "Enable team member creation" ON public.team_members;
+    DROP POLICY IF EXISTS "Enable team member deletion" ON public.team_members;
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Do nothing, just continue
+END $$;
+
+-- Enable RLS on all tables
+ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
+
+-- Create new team_members policies
+CREATE POLICY "Enable read access for team members"
+ON public.team_members FOR SELECT
+TO authenticated
+USING (
+    auth.uid() = user_id OR
+    EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = project_id
+        AND (p.founder_id = auth.uid() OR p.visibility = 'public')
+    )
+);
 
 CREATE POLICY "Enable team management for project founders"
-ON public.team_members
+ON public.team_members FOR ALL
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = project_id
+        AND p.founder_id = auth.uid()
+    )
+)
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = project_id
+        AND p.founder_id = auth.uid()
+    )
+);
+
+-- Event policies
+CREATE POLICY "Enable read access for project members"
+ON public.events
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = events.project_id
+        AND (
+            p.founder_id = auth.uid()
+            OR EXISTS (
+                SELECT 1 FROM public.team_members tm
+                WHERE tm.project_id = p.id
+                AND tm.user_id = auth.uid()
+            )
+        )
+    )
+);
+
+CREATE POLICY "Enable event management for project founders"
+ON public.events
 FOR ALL
 TO authenticated
 USING (
     EXISTS (
-        SELECT 1
-        FROM public.projects
-        WHERE id = team_members.project_id
+        SELECT 1 FROM public.projects
+        WHERE id = events.project_id
+        AND founder_id = auth.uid()
+    )
+);
+
+-- Activity policies
+CREATE POLICY "Enable read access for activities"
+ON public.activities
+FOR SELECT
+TO authenticated
+USING (
+    user_id = auth.uid()
+    OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = activities.project_id
+        AND (
+            p.founder_id = auth.uid()
+            OR EXISTS (
+                SELECT 1 FROM public.team_members tm
+                WHERE tm.project_id = p.id
+                AND tm.user_id = auth.uid()
+            )
+        )
+    )
+);
+
+CREATE POLICY "Enable activity creation"
+ON public.activities
+FOR INSERT
+TO authenticated
+WITH CHECK (user_id = auth.uid());
+
+-- Project stats policies
+CREATE POLICY "Enable read access for project stats"
+ON public.project_stats
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = project_stats.project_id
+        AND (
+            p.visibility = 'public'
+            OR p.founder_id = auth.uid()
+            OR EXISTS (
+                SELECT 1 FROM public.team_members tm
+                WHERE tm.project_id = p.id
+                AND tm.user_id = auth.uid()
+            )
+        )
+    )
+);
+
+CREATE POLICY "Enable stats update for project founders"
+ON public.project_stats
+FOR UPDATE
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.projects
+        WHERE id = project_stats.project_id
         AND founder_id = auth.uid()
     )
 );
@@ -247,6 +528,9 @@ USING (auth.uid() = follower_id);
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT ALL ON public.projects TO authenticated;
 GRANT ALL ON public.team_members TO authenticated;
+GRANT ALL ON public.events TO authenticated;
+GRANT ALL ON public.activities TO authenticated;
+GRANT ALL ON public.project_stats TO authenticated;
 
 -- Grant necessary permissions to anon users
 GRANT USAGE ON SCHEMA public TO anon;
@@ -312,6 +596,24 @@ WITH CHECK (true);
 
 CREATE POLICY "Service role can do anything with connections"
 ON public.connections FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "Service role can do anything with events"
+ON public.events FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "Service role can do anything with activities"
+ON public.activities FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "Service role can do anything with project_stats"
+ON public.project_stats FOR ALL
 TO service_role
 USING (true)
 WITH CHECK (true);

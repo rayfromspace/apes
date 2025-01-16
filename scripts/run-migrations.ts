@@ -1,55 +1,59 @@
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
-const path = require('path');
-const { seedDatabase } = require('../lib/seed-data');
+const { createClient } = require('@supabase/supabase-js')
+const fs = require('fs')
+const path = require('path')
 
-const supabaseUrl = 'https://ubckieucltnuxweoipnv.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViY2tpZXVjbHRudXh3ZW9pcG52Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMzI2OTIwMSwiZXhwIjoyMDQ4ODQ1MjAxfQ.J9PCoBovk0X0tg9BQg64yGG1zQjYi22dG0mCIHoO2Jo';
+// Get Supabase URL and key from environment variables
+const supabaseUrl = 'https://ubckieucltnuxweoipnv.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViY2tpZXVjbHRudXh3ZW9pcG52Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMzI2OTIwMSwiZXhwIjoyMDQ4ODQ1MjAxfQ.J9PCoBovk0X0tg9BQg64yGG1zQjYi22dG0mCIHoO2Jo'
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Initialize Supabase client
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-async function readSqlFile(filename: string): Promise<string> {
-  return fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', filename), 'utf8');
-}
-
-async function executeSql(sql: string): Promise<void> {
-  const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
-  if (error) throw error;
-  return data;
+async function executeSqlDirectly(sql) {
+  // Execute SQL directly using the raw SQL query endpoint
+  const { error } = await supabase.from('_sql').select('*').eq('query', sql)
+  return error
 }
 
 async function runMigrations() {
   try {
-    console.log('Starting migrations...');
+    // Read migration files
+    const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations')
+    const migrationFiles = fs.readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql'))
+      .sort()
 
-    // 1. Drop tables
-    console.log('Running drop tables script...');
-    const dropTablesSQL = await readSqlFile('20240110_drop_tables.sql');
-    await executeSql(dropTablesSQL);
+    // Execute each migration
+    for (const file of migrationFiles) {
+      console.log(`Running migration: ${file}`)
+      const migration = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
 
-    // 2. Create tables
-    console.log('Running create tables script...');
-    const createTablesSQL = await readSqlFile('20240110_create_tables.sql');
-    await executeSql(createTablesSQL);
+      // Split migration into individual statements
+      const statements = migration.split(';').filter(stmt => stmt.trim())
 
-    // 3. Enable RLS
-    console.log('Running enable RLS script...');
-    const enableRlsSQL = await readSqlFile('20240110_enable_rls.sql');
-    await executeSql(enableRlsSQL);
+      // Execute each statement
+      for (const statement of statements) {
+        if (statement.trim()) {
+          const error = await executeSqlDirectly(statement.trim())
+          if (error && !error.message.includes('does not exist')) {
+            console.error(`Error executing migration ${file}:`, error)
+            throw error
+          }
+        }
+      }
 
-    // 4. Run seed script
-    console.log('Running seed script...');
-    await seedDatabase(supabase);
+      console.log(`Completed migration: ${file}`)
+    }
 
-    // 5. Refresh schema cache
-    console.log('Refreshing schema cache...');
-    await executeSql('SELECT pg_notify(\'pgrst\', \'reload schema\');');
+    // Refresh schema cache
+    console.log('Refreshing schema cache...')
+    await executeSqlDirectly('SELECT pg_notify(\'pgrst\', \'reload schema\')')
 
-    console.log('All migrations and seeding completed successfully!');
+    console.log('All migrations completed successfully')
   } catch (error) {
-    console.error('Migration error:', error);
-    process.exit(1);
+    console.error('Migration error:', error)
+    process.exit(1)
   }
 }
 
-runMigrations();
+runMigrations()

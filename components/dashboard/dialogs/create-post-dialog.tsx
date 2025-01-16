@@ -6,18 +6,17 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { CreatePost } from "@/components/explore/create-post";
 
 interface CreatePostDialogProps {
-  children: React.ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function CreatePostDialog({ children }: CreatePostDialogProps) {
+export function CreatePostDialog({ open, onOpenChange }: CreatePostDialogProps) {
   return (
-    <Dialog>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create Post</DialogTitle>
@@ -25,7 +24,7 @@ export function CreatePostDialog({ children }: CreatePostDialogProps) {
             Share project updates or start a discussion with your team.
           </DialogDescription>
         </DialogHeader>
-        <CreatePost />
+        <CreatePost onSuccess={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );

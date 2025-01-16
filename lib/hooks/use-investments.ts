@@ -37,8 +37,8 @@ export function useInvestments(projectId?: string) {
   const fetchInvestments = async () => {
     setLoading(true);
     const endpoint = projectId
-      ? `/projects/${projectId}/investments`
-      : '/investments';
+      ? `/projects/${projectId}/value-stake`
+      : '/value-stake';
 
     const { data, error } = await fetchApi<{
       investments: Investment[];
@@ -58,7 +58,7 @@ export function useInvestments(projectId?: string) {
     investmentData: Omit<Investment, 'id' | 'created_at' | 'updated_at' | 'investor_id'>
   ) => {
     const { data, error } = await fetchApi<{ investment: Investment }>(
-      '/investments',
+      '/value-stake',
       {
         method: 'POST',
         body: JSON.stringify(investmentData),
@@ -79,7 +79,7 @@ export function useInvestments(projectId?: string) {
     updates: Partial<Investment>
   ) => {
     const { data, error } = await fetchApi<{ investment: Investment }>(
-      `/investments/${id}`,
+      `/value-stake/${id}`,
       {
         method: 'PATCH',
         body: JSON.stringify(updates),
@@ -98,7 +98,7 @@ export function useInvestments(projectId?: string) {
   };
 
   const deleteInvestment = async (id: string) => {
-    const { error } = await fetchApi(`/investments/${id}`, {
+    const { error } = await fetchApi(`/value-stake/${id}`, {
       method: 'DELETE',
     });
 

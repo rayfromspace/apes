@@ -6,11 +6,12 @@ import { Card } from "@/components/ui/card";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useAuth } from "@/lib/auth/store";
 import { format, subDays } from "date-fns";
-import { Activity, Calendar, GitCommit, MapPin } from "lucide-react";
+import { Activity, Calendar, GitCommit, MapPin, Wallet } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ContributionGraph } from "../contribution-graph";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 interface LoginActivity {
   timestamp: string;
@@ -28,6 +29,15 @@ interface ContributionDay {
   count: number;
 }
 
+interface PaymentRecord {
+  project_name: string;
+  amount: number;
+  currency: string;
+  payment_date: string;
+  status: 'pending' | 'completed';
+  role: string;
+}
+
 export function UserAnalyticsDialog({
   open,
   onOpenChange,
@@ -40,7 +50,9 @@ export function UserAnalyticsDialog({
   const [loginHistory, setLoginHistory] = React.useState<LoginActivity[]>([]);
   const [contributions, setContributions] = React.useState<ProjectContribution[]>([]);
   const [dailyContributions, setDailyContributions] = React.useState<ContributionDay[]>([]);
+  const [payments, setPayments] = React.useState<PaymentRecord[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [totalEarnings, setTotalEarnings] = React.useState(0);
 
   React.useEffect(() => {
     if (open && user) {
@@ -99,6 +111,22 @@ export function UserAnalyticsDialog({
 
       if (activityError) throw activityError;
 
+      // Fetch payment records
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('payments')
+        .select(`
+          amount,
+          currency,
+          payment_date,
+          status,
+          projects (name),
+          team_members (role)
+        `)
+        .eq('user_id', user.id)
+        .order('payment_date', { ascending: false });
+
+      if (paymentError) throw paymentError;
+
       // Process daily contributions
       const dailyCount = new Map<string, number>();
       activityData?.forEach((activity) => {
@@ -113,6 +141,19 @@ export function UserAnalyticsDialog({
         })
       );
 
+      const processedPayments = paymentData?.map(payment => ({
+        project_name: payment.projects?.name || 'Unknown Project',
+        amount: payment.amount,
+        currency: payment.currency,
+        payment_date: payment.payment_date,
+        status: payment.status,
+        role: payment.team_members?.role || 'Member'
+      })) || [];
+
+      const total = processedPayments.reduce((sum, payment) => 
+        payment.status === 'completed' ? sum + payment.amount : sum, 0
+      );
+
       setLoginHistory(authData || []);
       setContributions(
         (projectData || []).map((item) => ({
@@ -122,6 +163,8 @@ export function UserAnalyticsDialog({
         }))
       );
       setDailyContributions(contributionDays);
+      setPayments(processedPayments);
+      setTotalEarnings(total);
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
@@ -140,9 +183,10 @@ export function UserAnalyticsDialog({
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="details">Activity Details</TabsTrigger>
+            <TabsTrigger value="payments">Pay Tracker</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6 pt-4">
@@ -205,6 +249,48 @@ export function UserAnalyticsDialog({
                   </Card>
                 ))}
               </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-6 pt-4">
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                <Wallet className="h-5 w-5" />
+                Payment Summary
+              </h3>
+              <div className="mb-6">
+                <div className="text-2xl font-bold">
+                  Total Earnings: ${totalEarnings.toLocaleString()}
+                </div>
+              </div>
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-4">
+                  {payments.map((payment, index) => (
+                    <Card key={index} className="p-4 bg-muted/50">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <div className="font-medium">{payment.project_name}</div>
+                          <div className="text-sm text-muted-foreground">Role: {payment.role}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {format(new Date(payment.payment_date), "MMM d, yyyy")}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold">
+                            {payment.currency} {payment.amount.toLocaleString()}
+                          </div>
+                          <Badge 
+                            variant={payment.status === 'completed' ? 'default' : 'secondary'}
+                            className="mt-1"
+                          >
+                            {payment.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
             </Card>
           </TabsContent>
         </Tabs>

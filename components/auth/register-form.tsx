@@ -143,7 +143,7 @@ export function RegisterForm({ onSubmit, isLoading }: RegisterFormProps) {
 
           <Button disabled={isLoading} type="submit" className="w-full">
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Account
+            Register
           </Button>
 
           <p className="px-8 text-center text-sm text-muted-foreground">

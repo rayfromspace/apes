@@ -17,9 +17,8 @@ export const PUBLIC_ROUTES = [
 
 export const PROTECTED_ROUTES = [
   AUTH_ROUTES.DASHBOARD,
-  '/projects',
+  '/dashboard/projects',
   '/learning',
-  '/community',
   '/settings',
   '/calendar',
   '/value-stake',

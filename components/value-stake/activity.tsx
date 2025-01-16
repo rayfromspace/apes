@@ -1,40 +1,44 @@
+"use client";
+
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
-const ACTIVITIES = [
-  {
-    user: {
-      name: "Sarah Chen",
-      avatar: "https://avatar.vercel.sh/sarah",
-    },
-    action: "invested in",
-    target: "AI Content Creator",
-    amount: "$5,000",
-    time: "2h ago",
-  },
-  {
-    user: {
-      name: "Alex Thompson",
-      avatar: "https://avatar.vercel.sh/alex",
-    },
-    action: "received returns from",
-    target: "DeFi Trading Platform",
-    amount: "$2,500",
-    time: "5h ago",
-  },
-  {
-    user: {
-      name: "Michael Roberts",
-      avatar: "https://avatar.vercel.sh/michael",
-    },
-    action: "updated stake in",
-    target: "Supply Chain Solution",
-    amount: "$10,000",
-    time: "1d ago",
-  },
-];
+import { useInvestmentStore } from "@/lib/stores/investment-store";
+import { formatDistanceToNow } from "date-fns";
+import { Loader2 } from "lucide-react";
 
 export function ValueStakeActivity() {
+  const { activities, isLoading, fetchActivities } = useInvestmentStore();
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (activities.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground py-8">
+            No recent investment activities
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -42,23 +46,22 @@ export function ValueStakeActivity() {
       </CardHeader>
       <CardContent>
         <div className="space-y-8">
-          {ACTIVITIES.map((activity, i) => (
-            <div key={i} className="flex items-start gap-4">
+          {activities.map((activity) => (
+            <div key={activity.id} className="flex items-start gap-4">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={activity.user.avatar} />
-                <AvatarFallback>{activity.user.name[0]}</AvatarFallback>
+                <AvatarImage src={`https://avatar.vercel.sh/${activity.user_id}`} />
+                <AvatarFallback>U</AvatarFallback>
               </Avatar>
               <div className="space-y-1">
                 <p className="text-sm">
-                  <span className="font-medium">{activity.user.name}</span>{" "}
-                  <span className="text-muted-foreground">{activity.action}</span>{" "}
-                  <span className="font-medium">{activity.target}</span>
+                  <span className="font-medium">Investment</span>{" "}
+                  <span className="text-muted-foreground">{activity.action_type}</span>
                 </p>
                 <p className="text-sm font-medium text-primary">
-                  {activity.amount}
+                  ${activity.amount?.toLocaleString()}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {activity.time}
+                  {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
                 </p>
               </div>
             </div>

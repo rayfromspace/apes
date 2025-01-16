@@ -100,7 +100,7 @@ function ProjectsHoverContent({ projects = [] }) {
       <Button
         variant="link"
         className="p-0 h-auto font-semibold"
-        onClick={() => router.push('/investments')}
+        onClick={() => router.push('/value-stake')}
       >
         View all investments
         <ArrowRight className="ml-2 h-4 w-4" />
@@ -409,7 +409,7 @@ export function DashboardStats({ showProjectStats = false, projectId }: Dashboar
           value={stats.activeInvestments.toString()}
           className="bg-blue-50 dark:bg-blue-950"
           hoverContent={<ProjectsHoverContent projects={detailedData.projects} />}
-          onClick={() => router.push('/investments')}
+          onClick={() => router.push('/value-stake')}
         />
 
         <MetricCard

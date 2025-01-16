@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { AuthForm } from "@/components/auth/auth-form";
 import { useAuth } from "@/lib/auth/store";
@@ -54,13 +52,9 @@ export default function LoginPage() {
         </div>
 
         <AuthForm
+          type="login"
           onSubmit={onSubmit}
-          submitButton={
-            <Button disabled={isLoading} type="submit" className="w-full">
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign In
-            </Button>
-          }
+          isLoading={isLoading}
         />
 
         <p className="px-8 text-center text-sm text-muted-foreground">

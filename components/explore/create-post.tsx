@@ -12,7 +12,7 @@ import { useSocialStore } from "@/lib/stores/social-store";
 import { TOPICS } from "./feed";
 import { useUser } from "@/lib/hooks/use-user";
 
-export function CreatePost() {
+export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useUser();
   const [content, setContent] = useState("");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -50,6 +50,7 @@ export function CreatePost() {
       setSelectedTopics([]);
       setImage(null);
       setImagePreview(null);
+      onSuccess?.();
     } catch (error) {
       console.error('Failed to create post:', error);
     }

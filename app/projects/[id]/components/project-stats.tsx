@@ -14,7 +14,8 @@ import { UserAvatar } from "@/components/shared/user-avatar"
 import { useTaskStore, Task } from "@/lib/stores/tasks"
 import { useTeamStore, TeamMember } from "@/lib/stores/team-store"
 import { useParams, useRouter } from "next/navigation"
-import { createClientComponentClient } from "@/lib/supabase"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import type { Database } from '@/lib/types/database'
 
 interface MetricCardProps {
   icon: React.ReactNode
@@ -135,7 +136,7 @@ export function ProjectStats() {
   const projectId = params.id as string
   const { tasks, fetchTasks } = useTaskStore()
   const { members, fetchMembers } = useTeamStore()
-  const [project, setProject] = useState<any>(null)
+  const [project, setProject] = useState<Database['public']['Tables']['projects']['Row'] | null>(null)
 
   useEffect(() => {
     if (projectId) {
@@ -146,7 +147,7 @@ export function ProjectStats() {
   }, [projectId])
 
   async function loadProject() {
-    const supabase = createClientComponentClient()
+    const supabase = createClientComponentClient<Database>()
     const { data: project } = await supabase
       .from('projects')
       .select('*')

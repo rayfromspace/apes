@@ -32,36 +32,35 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   fetchProjects: async (userId?: string) => {
     set({ loading: true, error: null });
     try {
-      let query = supabase
-        .from('projects')
-        .select(`
-          *,
-          team_members (
-            id,
-            role,
-            user_id,
-            users (
-              id,
-              email,
-              name,
-              avatar_url
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (userId) {
-        query = query.or(`founder_id.eq.${userId},team_members.user_id.eq.${userId}`);
-      }
-
-      const { data, error } = await query;
+      const { data: projects, error } = await supabase
+        .rpc('get_user_projects', { p_user_id: userId });
 
       if (error) throw error;
-      
-      // Transform the data to include team members
-      const transformedProjects = data?.map(project => ({
+
+      // Fetch team members in a separate query to avoid recursion
+      const projectIds = projects?.map(p => p.id) || [];
+      const { data: teamMembers, error: teamError } = await supabase
+        .from('team_members')
+        .select(`
+          id,
+          role,
+          user_id,
+          project_id,
+          users (
+            id,
+            email,
+            name,
+            avatar_url
+          )
+        `)
+        .in('project_id', projectIds);
+
+      if (teamError) throw teamError;
+
+      // Combine projects with their team members
+      const transformedProjects = projects?.map(project => ({
         ...project,
-        team_members: project.team_members || []
+        team_members: teamMembers?.filter(tm => tm.project_id === project.id) || []
       })) || [];
 
       set({ projects: transformedProjects, loading: false });
@@ -97,12 +96,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   addProject: async (project) => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
+      // Insert project first
+      const { data: newProject, error } = await supabase
         .from('projects')
         .insert([project])
-        .select(`
-          *,
-          team_members (
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (newProject) {
+        // Add team member entry for project founder
+        const { data: teamMember, error: teamError } = await supabase
+          .from('team_members')
+          .insert({
+            project_id: newProject.id,
+            user_id: newProject.founder_id,
+            role: 'founder'
+          })
+          .select(`
             id,
             role,
             user_id,
@@ -112,27 +123,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
               name,
               avatar_url
             )
-          )
-        `)
-        .single();
+          `)
+          .single();
 
-      if (error) throw error;
-      if (data) {
-        // Add team member entry for project founder
-        const { error: teamError } = await supabase
-          .from('team_members')
-          .insert({
-            project_id: data.id,
-            user_id: data.founder_id,
-            role: 'founder'
-          });
-
-        if (teamError) {
-          console.error('Error creating team member:', teamError);
-        }
+        if (teamError) throw teamError;
 
         set((state) => ({
-          projects: [{ ...data, team_members: data.team_members || [] }, ...state.projects],
+          projects: [{
+            ...newProject,
+            team_members: teamMember ? [teamMember] : []
+          }, ...state.projects],
           loading: false
         }));
       }
@@ -144,13 +144,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   updateProject: async (id, project) => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
+      // Update project first
+      const { data: updatedProject, error } = await supabase
         .from('projects')
         .update(project)
         .eq('id', id)
-        .select(`
-          *,
-          team_members (
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (updatedProject) {
+        // Fetch team members separately
+        const { data: teamMembers, error: teamError } = await supabase
+          .from('team_members')
+          .select(`
             id,
             role,
             user_id,
@@ -160,15 +167,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
               name,
               avatar_url
             )
-          )
-        `)
-        .single();
+          `)
+          .eq('project_id', id);
 
-      if (error) throw error;
-      if (data) {
+        if (teamError) throw teamError;
+
         set((state) => ({
           projects: state.projects.map((p) =>
-            p.id === id ? { ...p, ...data, team_members: data.team_members || [] } : p
+            p.id === id ? {
+              ...p,
+              ...updatedProject,
+              team_members: teamMembers || []
+            } : p
           ),
           loading: false
         }));
