@@ -1,10 +1,10 @@
 "use client";
 
 import { DashboardStats } from "@/components/dashboard/stats";
-import { DashboardProjects } from "@/components/dashboard/projects";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { Notifications } from "@/components/dashboard/notifications";
 import { QuickActions } from "@/components/dashboard/quick-actions";
+import { ProjectList } from "@/components/projects/list/project-list";
 
 export default function FounderDashboard() {
   return (
@@ -13,7 +13,7 @@ export default function FounderDashboard() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <DashboardStats />
-            <DashboardProjects showMyProjectsOnly={false} showAnalytics={true} />
+            <ProjectList showCreateCard={true} status="active" />
           </div>
           <div className="space-y-6">
             <Notifications />

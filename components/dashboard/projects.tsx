@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,26 +18,12 @@ interface Project {
   title: string;
   description: string;
   category: string;
+  type: string;
   visibility: 'public' | 'private';
   status: 'active' | 'completed' | 'archived';
+  founder_id: string;
   created_at: string;
   updated_at: string;
-  founder: {
-    id: string;
-    email: string;
-    name: string;
-    avatar_url?: string;
-  };
-  team_members: Array<{
-    id: string;
-    role: string;
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      avatar_url?: string;
-    };
-  }>;
 }
 
 const MAX_PROJECTS = 3;
@@ -46,34 +32,26 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
   return (
     <Card 
       className={cn(
-        "group relative hover:shadow-lg transition-shadow",
+        "group relative hover:shadow-lg transition-shadow min-w-[320px] w-[320px]",
         onClick && "cursor-pointer"
       )}
       onClick={onClick}
     >
-      <CardContent className="p-6 space-y-4">
+      <CardContent className="p-6 space-y-4 h-[300px] flex flex-col">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-lg">{project.title}</h3>
           <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'}>
             {project.visibility}
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
-        <div className="flex items-center space-x-4">
-          <div className="flex -space-x-2">
-            {[project.founder, ...project.team_members.map(m => m.user)].slice(0, 3).map((member, i) => (
-              <Avatar key={member.id} className="border-2 border-background">
-                <AvatarFallback>
-                  {member.name?.charAt(0) || member.email.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-            ))}
+        <p className="text-sm text-muted-foreground line-clamp-2 flex-grow">{project.description}</p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Badge variant="outline">{project.type}</Badge>
+            <Badge variant="outline">{project.status}</Badge>
           </div>
-          <span className="text-sm text-muted-foreground">
-            {project.team_members.length + 1} members
-          </span>
+          <Progress value={75} className="h-1" />
         </div>
-        <Progress value={75} className="h-1" />
       </CardContent>
     </Card>
   );
@@ -81,8 +59,11 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
 
 function CreateProjectCard({ onClick }: { onClick: () => void }) {
   return (
-    <Card className="group relative hover:shadow-lg transition-shadow cursor-pointer" onClick={onClick}>
-      <CardContent className="p-6 flex flex-col items-center justify-center min-h-[300px] text-center space-y-4">
+    <Card 
+      className="group relative hover:shadow-lg transition-shadow cursor-pointer min-w-[320px] w-[320px]" 
+      onClick={onClick}
+    >
+      <CardContent className="p-6 flex flex-col items-center justify-center h-[300px] text-center space-y-4">
         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
           <Plus className="w-6 h-6 text-primary" />
         </div>
@@ -97,83 +78,70 @@ function CreateProjectCard({ onClick }: { onClick: () => void }) {
 
 function EmptyProjectSlot() {
   return (
-    <Card className="opacity-50">
-      <CardContent className="p-6 min-h-[300px] flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">Project Slot Available</p>
+    <Card className="opacity-50 min-w-[320px] w-[320px]">
+      <CardContent className="p-6 h-[300px] flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">Project slot available</p>
       </CardContent>
     </Card>
   );
 }
 
-export function DashboardProjects() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const router = useRouter();
-  const { user } = useAuth();
   const supabase = createClientComponentClient();
-
-  const loadProjects = async (isManualRefresh = false) => {
-    if (!user) return;
-    if (isManualRefresh) {
-      setRefreshing(true);
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        router.push('/auth/login');
-        return;
-      }
-
-      // Get projects where user is founder
-      const { data: projectsData, error } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          founder:user_profiles!founder_id (
-            id,
-            full_name as name
-          )
-        `)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(MAX_PROJECTS);
-
-      if (error) {
-        console.error('Error loading projects:', error);
-        return;
-      }
-
-      setProjects(projectsData || []);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-      if (isManualRefresh) {
-        setRefreshing(false);
-      }
-    }
-  };
+  const { user, initialize } = useAuth();
 
   useEffect(() => {
-    loadProjects();
+    initialize();
+  }, [initialize]);
+
+  async function fetchProjects() {
+    if (!user) {
+      console.log('No user found');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      console.log('Fetching projects for user:', user.id);
+
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('founder_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching projects:', error);
+        throw error;
+      }
+
+      console.log('Projects found:', data);
+      setProjects(data || []);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+      fetchProjects();
+    }
   }, [user]);
 
-  const handleProjectClick = (projectId: string) => {
-    router.push(`/projects/${projectId}`);
-  };
-
   const handleProjectCreated = (project: Project) => {
-    setProjects(prev => [project, ...prev].slice(0, MAX_PROJECTS));
-    setIsDialogOpen(false);
+    setProjects(prev => [project, ...prev]);
+    setShowNewProjectDialog(false);
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[300px]">
+      <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin" />
       </div>
     );
@@ -182,50 +150,48 @@ export function DashboardProjects() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Active Projects</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-2"
-          onClick={() => loadProjects(true)}
-          disabled={refreshing}
-        >
-          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-          Refresh
-        </Button>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Projects</h2>
+          <p className="text-muted-foreground">
+            Manage your active projects and create new ones
+          </p>
+        </div>
+        {loading ? (
+          <Button disabled>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading
+          </Button>
+        ) : (
+          <Button onClick={() => fetchProjects()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        )}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Project Slots - Show active projects or empty slots */}
-        {Array.from({ length: MAX_PROJECTS }).map((_, index) => {
-          const project = projects[index];
-          
-          if (project) {
-            return (
-              <ProjectCard 
-                key={project.id} 
+      <div className="relative">
+        <div className="overflow-x-auto pb-4 -mx-4 px-4 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent">
+          <div className="flex space-x-4">
+            <CreateProjectCard onClick={() => setShowNewProjectDialog(true)} />
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
                 project={project}
-                onClick={() => handleProjectClick(project.id)}
+                onClick={() => router.push(`/projects/${project.id}`)}
               />
-            );
-          }
-
-          if (index === projects.length) {
-            return (
-              <CreateProjectCard 
-                key={`create-${index}`} 
-                onClick={() => setIsDialogOpen(true)} 
-              />
-            );
-          }
-
-          return <EmptyProjectSlot key={`empty-${index}`} />;
-        })}
+            ))}
+            {Array.from({ length: Math.max(0, MAX_PROJECTS - projects.length) }).map((_, i) => (
+              <EmptyProjectSlot key={i} />
+            ))}
+          </div>
+        </div>
+        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
       </div>
 
-      <NewProjectDialog 
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+      <NewProjectDialog
+        open={showNewProjectDialog}
+        onOpenChange={setShowNewProjectDialog}
         onProjectCreated={handleProjectCreated}
       />
     </div>
