@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: light) {
+      #background { fill: #f3f4f6; }
+      #text { fill: #9ca3af; }
+    }
+    @media (prefers-color-scheme: dark) {
+      #background { fill: #1f2937; }
+      #text { fill: #e5e7eb; }
+    }
+  </style>
+  <rect id="background" width="100%" height="100%" rx="8" ry="8"/>
+  <g id="text">
+    <text x="50%" y="50%" font-family="Arial" font-size="48" text-anchor="middle" dominant-baseline="middle">
+      Upload Project
+    </text>
+    <text x="50%" y="58%" font-family="Arial" font-size="48" text-anchor="middle" dominant-baseline="middle">
+      Cover Image
+    </text>
+  </g>
+</svg>

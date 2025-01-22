@@ -24,6 +24,7 @@ interface Project {
   founder_id: string;
   created_at: string;
   updated_at: string;
+  image_url?: string;
 }
 
 const MAX_PROJECTS = 3;
@@ -32,25 +33,34 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
   return (
     <Card 
       className={cn(
-        "group relative hover:shadow-lg transition-shadow min-w-[320px] w-[320px]",
+        "group relative hover:shadow-lg transition-shadow min-w-[240px] w-[240px]",
         onClick && "cursor-pointer"
       )}
       onClick={onClick}
     >
-      <CardContent className="p-6 space-y-4 h-[300px] flex flex-col">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">{project.title}</h3>
-          <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'}>
-            {project.visibility}
-          </Badge>
+      <CardContent className="p-0 space-y-4 h-[300px] flex flex-col">
+        <div className="relative w-full h-[140px] bg-muted overflow-hidden rounded-t-lg">
+          <img
+            src={project.image_url || '/images/project-cover-placeholder.svg'}
+            alt={project.title}
+            className="w-full h-full object-cover"
+          />
         </div>
-        <p className="text-sm text-muted-foreground line-clamp-2 flex-grow">{project.description}</p>
-        <div className="space-y-4">
+        <div className="px-6 flex-1 flex flex-col">
           <div className="flex items-center justify-between">
-            <Badge variant="outline">{project.type}</Badge>
-            <Badge variant="outline">{project.status}</Badge>
+            <h3 className="font-semibold text-lg">{project.title}</h3>
+            <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'}>
+              {project.visibility}
+            </Badge>
           </div>
-          <Progress value={75} className="h-1" />
+          <p className="text-sm text-muted-foreground line-clamp-2 flex-grow">{project.description}</p>
+          <div className="space-y-4 mt-auto">
+            <div className="flex items-center justify-between">
+              <Badge variant="outline">{project.type}</Badge>
+              <Badge variant="outline">{project.status}</Badge>
+            </div>
+            <Progress value={75} className="h-1" />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -60,7 +70,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
 function CreateProjectCard({ onClick }: { onClick: () => void }) {
   return (
     <Card 
-      className="group relative hover:shadow-lg transition-shadow cursor-pointer min-w-[320px] w-[320px]" 
+      className="group relative hover:shadow-lg transition-shadow cursor-pointer min-w-[240px] w-[240px]" 
       onClick={onClick}
     >
       <CardContent className="p-6 flex flex-col items-center justify-center h-[300px] text-center space-y-4">
@@ -78,7 +88,7 @@ function CreateProjectCard({ onClick }: { onClick: () => void }) {
 
 function EmptyProjectSlot() {
   return (
-    <Card className="opacity-50 min-w-[320px] w-[320px]">
+    <Card className="opacity-50 min-w-[240px] w-[240px]">
       <CardContent className="p-6 h-[300px] flex items-center justify-center">
         <p className="text-sm text-muted-foreground">Project slot available</p>
       </CardContent>
@@ -169,9 +179,9 @@ export default function Projects() {
         )}
       </div>
 
-      <div className="relative">
-        <div className="overflow-x-auto pb-4 -mx-4 px-4 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent">
-          <div className="flex space-x-4">
+      <div className="relative w-full">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent">
+          <div className="flex gap-4 p-1 min-w-full">
             <CreateProjectCard onClick={() => setShowNewProjectDialog(true)} />
             {projects.map((project) => (
               <ProjectCard
