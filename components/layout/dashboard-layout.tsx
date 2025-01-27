@@ -21,16 +21,11 @@ export function DashboardLayout({
     <ProtectedRoute>
       <div className="min-h-screen flex">
         {/* Sidebar */}
-        {sidebar && (
-          <aside className="hidden md:flex w-64 flex-col fixed inset-y-0">
-            {sidebar}
-          </aside>
-        )}
+        {sidebar}
 
         {/* Main Content */}
         <main className={cn(
-          "flex-1",
-          sidebar ? "md:pl-64" : "",
+          "flex-1 transition-all duration-300 min-w-0",
           className
         )}>
           {/* Header */}
@@ -41,7 +36,7 @@ export function DashboardLayout({
           )}
           
           {/* Content */}
-          <div className="container mx-auto px-4 py-8">
+          <div className="container mx-auto px-4 py-8 min-w-0">
             {children}
           </div>
         </main>

@@ -20,18 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -79,7 +67,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
   });
   
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [openCategory, setOpenCategory] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -106,57 +93,28 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
 
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
+      if (!session?.user) {
         toast({
-          title: "Authentication Error",
-          description: "Please sign in to create a project",
+          title: "Error",
+          description: "You must be logged in to create a project",
           variant: "destructive",
         });
         return;
       }
 
-      // Create project first
-      const categories = formData.type === 'digital product' ? digitalProductCategories : digitalServiceCategories;
+      // Create project using rpc instead of direct table access
       const { data: project, error: projectError } = await supabase
-        .from('projects')
-        .insert([
-          {
-            title: formData.title.trim(),
-            description: formData.description?.trim(),
-            type: formData.type,
-            category: categories.includes(formData.category) ? formData.category : formData.category || 'Other',
-            founder_id: session.user.id,
-            status: 'active',
-            visibility: 'private', // Default to private
-          }
-        ])
-        .select()
-        .single();
+        .rpc('create_project', {
+          p_title: formData.title,
+          p_description: formData.description,
+          p_type: formData.type,
+          p_category: formData.category === 'Other' ? formData.customCategory : formData.category,
+          p_founder_id: session.user.id
+        });
 
-      if (projectError) throw projectError;
-
-      // Handle image upload if present
-      if (formData.image) {
-        const fileExt = formData.image.name.split('.').pop();
-        const filePath = `${project.id}/${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('project-images')
-          .upload(filePath, formData.image);
-
-        if (uploadError) {
-          console.error('Error uploading image:', uploadError);
-        } else {
-          // Update project with image URL
-          const { error: updateError } = await supabase
-            .from('projects')
-            .update({ image_url: filePath })
-            .eq('id', project.id);
-
-          if (updateError) {
-            console.error('Error updating project with image:', updateError);
-          }
-        }
+      if (projectError) {
+        console.error('Project creation error:', projectError);
+        throw projectError;
       }
 
       toast({
@@ -166,12 +124,18 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
 
       onProjectCreated?.(project);
       onOpenChange(false);
-      router.push(`/dashboard/projects/${project.id}`);
+
+      // Wait a brief moment before redirecting to ensure state updates are complete
+      setTimeout(() => {
+        router.push(`/projects/${project.id}`);
+        router.refresh(); // Refresh the page to ensure new data is loaded
+      }, 100);
+
     } catch (error: any) {
       console.error('Error creating project:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create project",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -179,20 +143,35 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File too large",
+          description: "Please select an image under 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      setFormData(prev => ({ ...prev, image: file }));
+    }
+  };
+
   const categories = formData.type === 'digital product' ? digitalProductCategories : digitalServiceCategories;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
-          <DialogDescription>
-            Start your new digital venture. You can add more details later.
-          </DialogDescription>
-        </DialogHeader>
-
+      <DialogContent className="sm:max-w-[600px]">
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Fill in the details below to create your new project.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6 py-4">
             <div className="space-y-2">
               <Label htmlFor="title">Project Title</Label>
               <Input
@@ -222,7 +201,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue placeholder="Select project type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="digital product">Digital Product</SelectItem>
@@ -233,60 +212,45 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
 
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <div className="flex gap-2">
-                <Select
-                  value={formData.category === 'Other' || categories.indexOf(formData.category) === -1 ? 'Other' : formData.category}
-                  onValueChange={(value) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      category: value,
-                      customCategory: value === 'Other' ? '' : undefined
-                    }));
-                  }}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.toLowerCase()} value={category}>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(formData.type === 'digital product' ? digitalProductCategories : digitalServiceCategories)
+                    .map((category) => (
+                      <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-                {(formData.category === 'Other' || categories.indexOf(formData.category) === -1) && (
-                  <Input
-                    placeholder="Enter custom category"
-                    value={formData.customCategory || formData.category}
-                    onChange={(e) => {
-                      const customValue = e.target.value;
-                      setFormData(prev => ({
-                        ...prev,
-                        category: customValue,
-                        customCategory: customValue
-                      }));
-                    }}
-                    className="flex-1"
-                  />
-                )}
-              </div>
+                </SelectContent>
+              </Select>
             </div>
+
+            {formData.category === 'Other' && (
+              <div className="space-y-2">
+                <Label htmlFor="customCategory">Custom Category</Label>
+                <Input
+                  id="customCategory"
+                  value={formData.customCategory}
+                  onChange={(e) => setFormData(prev => ({ ...prev, customCategory: e.target.value }))}
+                  placeholder="Enter custom category"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="image">Project Image</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <Input
                   id="image"
                   type="file"
                   accept="image/*"
+                  onChange={handleFileChange}
                   ref={fileInputRef}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setFormData(prev => ({ ...prev, image: file }));
-                    }
-                  }}
                   className="hidden"
                 />
                 <Button
@@ -294,8 +258,8 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  {formData.image ? 'Change Image' : 'Upload Image'}
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Image
                 </Button>
                 {formData.image && (
                   <span className="text-sm text-muted-foreground">
@@ -307,11 +271,15 @@ export function NewProjectDialog({ open, onOpenChange, onProjectCreated }: NewPr
           </div>
 
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Project"}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full sm:w-auto"
+            >
+              {isSubmitting && (
+                <Upload className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Create Project
             </Button>
           </DialogFooter>
         </form>

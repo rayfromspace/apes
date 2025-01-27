@@ -1,64 +1,71 @@
 "use client";
 
-import { Project } from "@/types/project";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Flag, Circle } from "lucide-react";
+
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  type: string;
+  visibility: 'public' | 'private';
+  status: 'active' | 'completed' | 'archived';
+  founder_id: string;
+  created_at: string;
+  updated_at: string;
+}
 
 interface ProjectTimelineProps {
   project: Project;
 }
 
 export function ProjectTimeline({ project }: ProjectTimelineProps) {
-  const milestones = project.milestones || [];
-  
+  // For now, we'll just show project creation and last update
+  const events = [
+    {
+      date: new Date(project.created_at),
+      title: 'Project Created',
+      description: `${project.title} was created`,
+      icon: Flag,
+    },
+    {
+      date: new Date(project.updated_at),
+      title: 'Last Update',
+      description: 'Project was updated',
+      icon: Circle,
+    },
+  ];
+
   return (
     <Card className="p-6">
-      <div className="space-y-8">
-        {milestones.map((milestone, index) => {
-          const isCompleted = milestone.status === 'completed';
-          const isInProgress = milestone.status === 'in_progress';
-          
-          return (
-            <div key={milestone.id} className="relative">
-              {/* Connector Line */}
-              {index < milestones.length - 1 && (
-                <div className="absolute left-3 top-8 h-full w-0.5 bg-border" />
-              )}
-              
-              <div className="flex items-start gap-4">
-                {/* Status Indicator */}
-                <div 
-                  className={cn(
-                    "mt-1 h-6 w-6 rounded-full border-2",
-                    isCompleted && "bg-primary border-primary",
-                    isInProgress && "bg-primary/20 border-primary",
-                    !isCompleted && !isInProgress && "bg-background border-muted"
-                  )}
-                />
-                
-                {/* Content */}
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">{milestone.title}</h3>
-                    <span className="text-sm text-muted-foreground">
-                      {new Date(milestone.dueDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                  
+      <ScrollArea className="h-[300px] pr-4">
+        <div className="relative">
+          {/* Timeline line */}
+          <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+
+          {/* Timeline events */}
+          <div className="space-y-8 relative">
+            {events.map((event, index) => (
+              <div key={index} className="flex gap-4 relative">
+                <div className="w-8 h-8 rounded-full bg-background border flex items-center justify-center relative z-10">
+                  <event.icon className="w-4 h-4" />
+                </div>
+                <div className="flex-1 pt-1">
+                  <p className="font-medium">{event.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    {milestone.description}
+                    {event.description}
                   </p>
-                  
-                  {isInProgress && (
-                    <Progress value={60} className="mt-2" />
-                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {event.date.toLocaleDateString()}
+                  </p>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            ))}
+          </div>
+        </div>
+      </ScrollArea>
     </Card>
   );
 }

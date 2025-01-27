@@ -10,17 +10,17 @@ export function ProtectedRoute({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isInitialized } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (isInitialized && !isAuthenticated && !pathname.startsWith('/auth')) {
+    if (!isLoading && !user && !pathname.startsWith('/auth')) {
       router.push('/auth/login');
     }
-  }, [isAuthenticated, isInitialized, pathname, router]);
+  }, [user, isLoading, pathname, router]);
 
-  if (!isInitialized) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -28,7 +28,7 @@ export function ProtectedRoute({
     );
   }
 
-  if (!isAuthenticated && !pathname.startsWith('/auth')) {
+  if (!user && !pathname.startsWith('/auth')) {
     return (
       <div className="flex h-screen items-center justify-center">
         <LoadingSpinner size="lg" />

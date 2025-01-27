@@ -33,7 +33,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
   return (
     <Card 
       className={cn(
-        "group relative hover:shadow-lg transition-shadow min-w-[240px] w-[240px]",
+        "group relative hover:shadow-lg transition-shadow w-[240px] sm:w-[240px] sm:min-w-[240px] flex-shrink-0",
         onClick && "cursor-pointer"
       )}
       onClick={onClick}
@@ -70,7 +70,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
 function CreateProjectCard({ onClick }: { onClick: () => void }) {
   return (
     <Card 
-      className="group relative hover:shadow-lg transition-shadow cursor-pointer min-w-[240px] w-[240px]" 
+      className="group relative hover:shadow-lg transition-shadow w-[240px] sm:w-[240px] sm:min-w-[240px] flex-shrink-0 cursor-pointer" 
       onClick={onClick}
     >
       <CardContent className="p-6 flex flex-col items-center justify-center h-[300px] text-center space-y-4">
@@ -88,7 +88,7 @@ function CreateProjectCard({ onClick }: { onClick: () => void }) {
 
 function EmptyProjectSlot() {
   return (
-    <Card className="opacity-50 min-w-[240px] w-[240px]">
+    <Card className="opacity-50 w-[240px] sm:w-[240px] sm:min-w-[240px] flex-shrink-0">
       <CardContent className="p-6 h-[300px] flex items-center justify-center">
         <p className="text-sm text-muted-foreground">Project slot available</p>
       </CardContent>
@@ -181,18 +181,20 @@ export default function Projects() {
 
       <div className="relative w-full">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent">
-          <div className="flex gap-4 p-1 min-w-full">
-            <CreateProjectCard onClick={() => setShowNewProjectDialog(true)} />
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => router.push(`/projects/${project.id}`)}
-              />
-            ))}
-            {Array.from({ length: Math.max(0, MAX_PROJECTS - projects.length) }).map((_, i) => (
-              <EmptyProjectSlot key={i} />
-            ))}
+          <div className="flex gap-4 p-1 min-w-full w-full">
+            <div className="flex gap-4 flex-nowrap">
+              <CreateProjectCard onClick={() => setShowNewProjectDialog(true)} />
+              {projects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                />
+              ))}
+              {Array.from({ length: Math.max(0, MAX_PROJECTS - projects.length) }).map((_, i) => (
+                <EmptyProjectSlot key={i} />
+              ))}
+            </div>
           </div>
         </div>
         <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none" />

@@ -16,10 +16,6 @@ interface DbTeamMember {
   last_active: string
   created_at: string
   updated_at: string
-  user: {
-    email: string
-    full_name?: string
-  }
 }
 
 interface DbTeamInvite {
@@ -49,6 +45,7 @@ export interface TeamMember {
   user?: {
     email: string
     full_name?: string
+    avatar_url?: string
   }
 }
 
@@ -88,40 +85,30 @@ export const useTeamStore = create<TeamState>((set, get) => ({
       set({ loading: true, error: null })
       const supabase = createClientComponentClient()
 
+      // Get team members
       const { data: members, error } = await supabase
         .from('team_members')
-        .select(`
-          id,
-          project_id,
-          user_id,
-          role,
-          permissions,
-          salary,
-          status,
-          last_active,
-          created_at,
-          updated_at,
-          user:user_id (
-            email,
-            full_name
-          )
-        `)
+        .select('*')
         .eq('project_id', projectId)
 
       if (error) throw error
 
       const transformedMembers: TeamMember[] = members.map((member: DbTeamMember) => ({
         id: member.id,
-        name: member.user?.full_name || member.user?.email.split('@')[0] || 'Unknown',
-        email: member.user?.email || '',
+        name: `Team Member ${member.id.slice(0, 4)}`,
+        email: '',
         role: member.role,
-        permissions: member.permissions,
-        salary: member.salary,
-        status: member.status,
-        lastActive: member.last_active,
+        permissions: member.permissions || {},
+        salary: member.salary || 0,
+        status: member.status || 'active',
+        lastActive: member.last_active || member.updated_at,
         projectId: member.project_id,
         userId: member.user_id,
-        user: member.user
+        user: {
+          email: '',
+          full_name: `Team Member ${member.id.slice(0, 4)}`,
+          avatar_url: ''
+        }
       }))
 
       set({ members: transformedMembers, loading: false })

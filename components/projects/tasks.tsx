@@ -1,25 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Plus, 
-  Calendar,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  AlertCircle 
-} from "lucide-react";
+import { Plus } from "lucide-react";
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Task {
   id: string;
   title: string;
-  description: string;
-  status: 'todo' | 'in_progress' | 'completed' | 'blocked';
-  dueDate: string;
-  assignedTo: string;
+  completed: boolean;
+  created_at: string;
+  project_id: string;
+  user_id: string;
 }
 
 interface ProjectTasksProps {
@@ -28,96 +23,109 @@ interface ProjectTasksProps {
 }
 
 export function ProjectTasks({ projectId, canEdit }: ProjectTasksProps) {
-  // Demo tasks - replace with real data
-  const tasks: Task[] = [
-    {
-      id: "1",
-      title: "Design System Implementation",
-      description: "Implement the new design system across all components",
-      status: "in_progress",
-      dueDate: "2024-12-20",
-      assignedTo: "user1",
-    },
-    {
-      id: "2",
-      title: "API Integration",
-      description: "Integrate the payment processing API",
-      status: "todo",
-      dueDate: "2024-12-25",
-      assignedTo: "user2",
-    },
-    {
-      id: "3",
-      title: "User Testing",
-      description: "Conduct user testing sessions",
-      status: "completed",
-      dueDate: "2024-12-15",
-      assignedTo: "user3",
-    },
-  ];
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClientComponentClient();
 
-  const getStatusIcon = (status: Task['status']) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="h-4 w-4 text-primary" />;
-      case 'blocked':
-        return <XCircle className="h-4 w-4 text-destructive" />;
-      case 'in_progress':
-        return <Clock className="h-4 w-4 text-blue-500" />;
-      default:
-        return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
+  useEffect(() => {
+    async function fetchTasks() {
+      try {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setTasks(data || []);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchTasks();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('tasks_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId]);
+
+  const toggleTask = async (taskId: string, completed: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed })
+        .eq('id', taskId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating task:', error);
     }
   };
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-4 flex-1" />
+            </div>
+          ))}
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6">
       <div className="space-y-4">
-        {/* Task Management */}
-        {canEdit && (
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Task
-            </Button>
-          </div>
-        )}
-        
-        {/* Tasks List */}
+        {/* Task List */}
         <div className="space-y-4">
           {tasks.map((task) => (
-            <div 
-              key={task.id}
-              className="flex items-start gap-4 p-4 rounded-lg border bg-card"
-            >
-              <Checkbox 
-                checked={task.status === 'completed'}
+            <div key={task.id} className="flex items-start gap-4">
+              <Checkbox
+                checked={task.completed}
+                onCheckedChange={(checked) => toggleTask(task.id, checked as boolean)}
                 disabled={!canEdit}
               />
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 className="font-medium">{task.title}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {task.description}
-                    </p>
-                  </div>
-                  {getStatusIcon(task.status)}
-                </div>
-                
-                <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    {new Date(task.dueDate).toLocaleDateString()}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    Assigned to: User Name
-                  </div>
-                </div>
+              <div className="flex-1 space-y-1">
+                <p className="text-sm font-medium">{task.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  Created {new Date(task.created_at).toLocaleDateString()}
+                </p>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Add Task Button */}
+        {canEdit && (
+          <Button variant="outline" className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        )}
       </div>
     </Card>
   );

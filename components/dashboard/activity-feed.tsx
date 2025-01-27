@@ -31,8 +31,16 @@ export function ActivityFeed() {
         .from('activities')
         .select(`
           *,
-          user:users(id, full_name, avatar_url),
-          project:projects(id, title)
+          user:user_id (
+            id,
+            email,
+            full_name,
+            avatar_url
+          ),
+          project:project_id (
+            id,
+            title
+          )
         `)
         .or(`project_id.in.(select id from projects where founder_id.eq.${user.id}),project_id.in.(select project_id from team_members where user_id.eq.${user.id})`)
         .order('created_at', { ascending: false })

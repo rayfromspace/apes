@@ -21,37 +21,48 @@ interface ProjectListProps {
   showCreateCard?: boolean;
 }
 
+const placeholderImage = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" font-family="Arial" font-size="14" fill="%236b7280" text-anchor="middle" dy=".3em">Project Cover</text></svg>`;
+
 function ProjectCard({ project, onClick }: { project: Project; onClick?: () => void }) {
   return (
     <Card 
       className={cn(
-        "group relative hover:shadow-lg transition-shadow min-w-[100px] w-[180px]",
+        "group relative hover:shadow-lg transition-shadow w-[240px]",
         onClick && "cursor-pointer"
       )}
       onClick={onClick}
     >
-      <CardContent className="p-6 space-y-4 h-[380px] flex flex-col">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">{project.name}</h3>
-          <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'}>
-            {project.visibility}
-          </Badge>
+      <CardContent className="p-0 space-y-4 h-[400px] flex flex-col">
+        <div className="relative w-full h-[180px] bg-muted overflow-hidden">
+          <img
+            src={project.image_url || placeholderImage}
+            alt={project.image_url ? `${project.name} cover` : "Project placeholder"}
+            className="w-full h-full object-cover"
+          />
         </div>
-        <p className="text-sm text-muted-foreground line-clamp-2 flex-grow">{project.description}</p>
-        <div className="space-y-4">
+        <div className="px-6 space-y-4 flex-1">
           <div className="flex items-center justify-between">
-            <Badge variant="outline">{project.type}</Badge>
-            <Badge variant="outline">{project.status}</Badge>
+            <h3 className="font-semibold text-lg">{project.name}</h3>
+            <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'}>
+              {project.visibility}
+            </Badge>
           </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Tasks</span>
-              <span>{project.completed_tasks}/{project.active_tasks + project.completed_tasks}</span>
+          <p className="text-sm text-muted-foreground line-clamp-2 flex-grow">{project.description}</p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Badge variant="outline">{project.type}</Badge>
+              <Badge variant="outline">{project.status}</Badge>
             </div>
-            <Progress 
-              value={(project.completed_tasks / (project.active_tasks + project.completed_tasks)) * 100} 
-              className="h-1" 
-            />
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Tasks</span>
+                <span>{project.completed_tasks}/{project.active_tasks + project.completed_tasks}</span>
+              </div>
+              <Progress 
+                value={(project.completed_tasks / (project.active_tasks + project.completed_tasks)) * 100} 
+                className="h-1" 
+              />
+            </div>
           </div>
         </div>
       </CardContent>
@@ -62,16 +73,22 @@ function ProjectCard({ project, onClick }: { project: Project; onClick?: () => v
 function CreateProjectCard({ onClick }: { onClick: () => void }) {
   return (
     <Card 
-      className="group relative hover:shadow-lg transition-shadow cursor-pointer min-w-[100px] w-[180px]" 
+      className="group relative hover:shadow-lg transition-shadow w-[240px] cursor-pointer"
       onClick={onClick}
     >
-      <CardContent className="p-6 flex flex-col items-center justify-center h-[300px] text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-          <Plus className="w-6 h-6 text-primary" />
+      <CardContent className="p-0 h-[400px] flex flex-col">
+        <div className="relative w-full h-[180px] bg-muted">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Plus className="w-6 h-6 text-primary" />
+            </div>
+          </div>
         </div>
-        <div>
-          <h3 className="font-semibold text-lg">Create New Project</h3>
-          <p className="text-sm text-muted-foreground">Start a new project and build your team</p>
+        <div className="p-6 flex-1 flex flex-col items-center justify-center text-center space-y-4">
+          <div>
+            <h3 className="font-semibold text-lg">Create New Project</h3>
+            <p className="text-sm text-muted-foreground">Start a new project and build your team</p>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -80,16 +97,25 @@ function CreateProjectCard({ onClick }: { onClick: () => void }) {
 
 function ProjectCardSkeleton() {
   return (
-    <Card className="min-w-[320px] w-[320px]">
-      <CardContent className="p-6 space-y-4 h-[300px]">
-        <div className="h-6 w-2/3 bg-muted rounded animate-pulse" />
-        <div className="space-y-2">
-          <div className="h-4 w-full bg-muted rounded animate-pulse" />
-          <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-        </div>
-        <div className="flex justify-between mt-auto">
-          <div className="h-5 w-20 bg-muted rounded animate-pulse" />
-          <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+    <Card className="w-[240px]">
+      <CardContent className="p-0 h-[400px] flex flex-col">
+        <div className="w-full h-[180px] bg-muted animate-pulse" />
+        <div className="p-6 space-y-4 flex-1">
+          <div className="flex items-center justify-between">
+            <div className="h-6 w-2/3 bg-muted rounded animate-pulse" />
+            <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 w-full bg-muted rounded animate-pulse" />
+            <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+          </div>
+          <div className="flex justify-between mt-4">
+            <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+            <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+          </div>
+          <div className="mt-4">
+            <div className="h-2 w-full bg-muted rounded animate-pulse" />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -135,34 +161,37 @@ export function ProjectList({ status, category, visibility, showCreateCard = tru
         </Button>
       </div>
 
-      <div className="relative">
-        <div className="overflow-x-auto pb-4 -mx-4 px-4 scrollbar-thin scrollbar-thumb-primary/10 hover:scrollbar-thumb-primary/20 scrollbar-track-transparent">
-          <div className="flex flex-wrap gap-4">
-            {showCreateCard && (
+      <div className="w-full overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {showCreateCard && (
+            <div className="w-full">
               <CreateProjectCard onClick={() => setShowNewProjectDialog(true)} />
-            )}
-            
-            {isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <ProjectCardSkeleton key={i} />
-              ))
-            ) : data?.data?.length ? (
-              data.data.map((project) => (
+            </div>
+          )}
+          
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="w-full">
+                <ProjectCardSkeleton />
+              </div>
+            ))
+          ) : data?.data?.length ? (
+            data.data.map((project) => (
+              <div key={project.id} className="w-full">
                 <ProjectCard
-                  key={project.id}
                   project={project}
                   onClick={() => router.push(`/projects/${project.id}`)}
                 />
-              ))
-            ) : (
-              <Card className="p-6 text-center w-full">
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full w-full">
+              <Card className="p-6 text-center">
                 <p className="text-muted-foreground">No projects found</p>
               </Card>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
       </div>
 
       <NewProjectDialog

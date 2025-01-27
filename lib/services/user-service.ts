@@ -24,8 +24,8 @@ export class UserService {
     if (!authData.user) throw new Error('Failed to create user');
 
     // Create user profile
-    const { error: profileError } = await supabase
-      .from('users')
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
       .insert([
         {
           id: authData.user.id,
@@ -97,7 +97,7 @@ export class UserService {
     avatar_url?: string;
   }) {
     const { error } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .upsert(
         {
           user_id: id,
@@ -130,7 +130,7 @@ export class UserService {
 
   static async getUserProfile(userId: string) {
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('*')
       .eq('user_id', userId)
       .single();

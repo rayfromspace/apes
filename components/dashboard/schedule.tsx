@@ -243,7 +243,21 @@ export function Schedule() {
 
   useEffect(() => {
     if (user) {
-      fetchEvents();
+      fetchEvents({
+        query: `
+          *,
+          creator:creator_id (
+            id,
+            email,
+            full_name,
+            avatar_url
+          ),
+          project:project_id (
+            id,
+            title
+          )
+        `,
+      });
     }
   }, [user, fetchEvents]);
 
@@ -256,11 +270,15 @@ export function Schedule() {
   };
 
   const handlePreviousWeek = () => {
-    setStartDayIndex(prev => Math.max(0, prev - 7));
+    if (startDayIndex > 0) {
+      setStartDayIndex(prev => Math.max(0, prev - 1));
+    }
   };
 
   const handleNextWeek = () => {
-    setStartDayIndex(prev => prev + 7);
+    if (startDayIndex < days.length - 3) {
+      setStartDayIndex(prev => Math.min(days.length - 3, prev + 1));
+    }
   };
 
   useEffect(() => {
@@ -343,11 +361,11 @@ export function Schedule() {
             </Button>
             <div 
               ref={weekContainerRef}
-              className="grid grid-cols-3 md:grid-cols-7 gap-2 overflow-x-auto md:overflow-x-visible"
+              className="grid grid-cols-3 md:grid-cols-7 gap-2 overflow-x-hidden md:overflow-x-visible relative"
             >
               {(isMobile ? days.slice(startDayIndex, startDayIndex + 3) : days).map((day) => (
                 <Card 
-                  key={day.date}
+                  key={day.name + day.date}
                   className={cn(
                     "p-4 transition-all hover:shadow-md cursor-pointer min-w-[120px]",
                     format(today, 'EEEE') === day.name ? "bg-primary text-primary-foreground hover:bg-primary/90" : "hover:bg-accent"

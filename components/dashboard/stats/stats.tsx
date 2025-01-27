@@ -404,12 +404,14 @@ export function DashboardStats({ showProjectStats = false, projectId }: Dashboar
     <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          icon={<Lightbulb className="h-8 w-8 text-blue-500" />}
+          icon={<Star className="h-4 w-4" />}
           label="Active Investments"
           value={stats.activeInvestments.toString()}
-          className="bg-blue-50 dark:bg-blue-950"
-          hoverContent={<ProjectsHoverContent projects={detailedData.projects} />}
-          onClick={() => router.push('/value-stake')}
+          className="bg-blue-500/10"
+          hoverContent={
+            <ProjectsHoverContent projects={detailedData.projects} />
+          }
+          onClick={() => router.push('/value-stake/portfolio')}
         />
 
         <MetricCard

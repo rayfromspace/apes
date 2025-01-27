@@ -1,60 +1,65 @@
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { getServerSession } from "next-auth/next";
-import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
 
 export async function GET() {
+  const supabase = createRouteHandlerClient({ cookies });
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select(`
+        id,
+        title,
+        description,
+        type,
+        category,
+        status,
+        visibility,
+        created_at,
+        founder_id,
+        team_members (
+          id,
+          role,
+          user_id
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-    const projects = await prisma.project.findMany({
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        visibility: true,
-        created_at: true,
-        description: true,
-        founder: {
-          select: {
-            full_name: true,
-            email: true
-          }
-        }
-      },
-      orderBy: {
-        created_at: "desc"
-      }
-    });
+    if (error) throw error;
 
-    return NextResponse.json({ projects });
-  } catch (error) {
+    return NextResponse.json({ data: projects });
+  } catch (error: any) {
     console.error("Error fetching projects:", error);
     return NextResponse.json(
-      { error: "Failed to fetch projects" },
+      { error: error.message || "Failed to fetch projects" },
       { status: 500 }
     );
   }
 }
 
 export async function POST(request: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const supabase = createRouteHandlerClient({ cookies });
+  const { data: { session } } = await supabase.auth.getSession();
 
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
     const formData = await request.formData();
-    const name = formData.get('name') as string;
+    const title = formData.get('title') as string;
     const description = formData.get('description') as string;
     const imageFile = formData.get('image') as File;
 
-    if (!name) {
+    if (!title) {
       return NextResponse.json(
-        { error: "Project name is required" },
+        { error: "Project title is required" },
         { status: 400 }
       );
     }
@@ -62,47 +67,53 @@ export async function POST(request: Request) {
     // Handle image upload if present
     let imagePath = null;
     if (imageFile) {
-      const { data: uploadData, error: uploadError } = await prisma.projectImage.create({
-        data: {
-          image: {
-            upload: imageFile
-          }
-        }
-      });
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('project-images')
+        .upload(`public/${imageFile.name}`, imageFile, {
+          upsert: true,
+        });
 
       if (uploadError) {
         return NextResponse.json({ error: uploadError.message }, { status: 400 });
       }
-      imagePath = uploadData.image.url;
+      imagePath = uploadData.Key;
     }
 
     // Create project
-    const project = await prisma.project.create({
-      data: {
-        name,
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .insert([
+        {
+          title,
+          description,
+          image_url: imagePath,
+          founder_id: session.user.id,
+        },
+      ])
+      .select(`
+        id,
+        title,
         description,
-        image_url: imagePath,
-        founder: {
-          connect: {
-            id: session.user.id
-          }
-        }
-      },
-      include: {
-        founder: {
-          select: {
-            full_name: true,
-            email: true
-          }
-        }
-      }
-    });
+        type,
+        category,
+        status,
+        visibility,
+        created_at,
+        founder_id,
+        team_members (
+          id,
+          role,
+          user_id
+        )
+      `);
 
-    return NextResponse.json({ project });
-  } catch (error) {
+    if (projectError) throw projectError;
+
+    return NextResponse.json({ data: project[0] });
+  } catch (error: any) {
     console.error("Error creating project:", error);
     return NextResponse.json(
-      { error: "Failed to create project" },
+      { error: error.message || "Failed to create project" },
       { status: 500 }
     );
   }

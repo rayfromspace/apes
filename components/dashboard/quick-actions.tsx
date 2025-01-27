@@ -34,7 +34,11 @@ interface QuickAction {
   color: string;
 }
 
-export function QuickActions() {
+interface QuickActionsProps {
+  projectId?: string;
+}
+
+export function QuickActions({ projectId }: QuickActionsProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [postDialogOpen, setPostDialogOpen] = useState(false);
@@ -130,22 +134,10 @@ export function QuickActions() {
         </CardContent>
       </Card>
 
-      <CreatePostDialog 
-        open={postDialogOpen} 
-        onOpenChange={setPostDialogOpen} 
-      />
-      <CreateProposalDialog
-        open={proposalDialogOpen}
-        onOpenChange={setProposalDialogOpen}
-      />
-      <UserAnalyticsDialog
-        open={analyticsDialogOpen}
-        onOpenChange={setAnalyticsDialogOpen}
-      />
-      <NFTContractsDialog
-        open={contractsDialogOpen}
-        onOpenChange={setContractsDialogOpen}
-      />
+      <CreatePostDialog open={postDialogOpen} onOpenChange={setPostDialogOpen} />
+      <CreateProposalDialog open={proposalDialogOpen} onOpenChange={setProposalDialogOpen} />
+      <UserAnalyticsDialog open={analyticsDialogOpen} onOpenChange={setAnalyticsDialogOpen} />
+      <NFTContractsDialog open={contractsDialogOpen} onOpenChange={setContractsDialogOpen} />
     </div>
   );
 }

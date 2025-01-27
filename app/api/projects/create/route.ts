@@ -17,9 +17,9 @@ export async function POST(request: Request) {
     const projectData = await request.json();
     
     // Validate required fields
-    if (!projectData.name?.trim()) {
+    if (!projectData.title?.trim()) {
       return NextResponse.json(
-        { error: { message: 'Project name is required' } },
+        { error: { message: 'Project title is required' } },
         { status: 400 }
       );
     }
@@ -28,10 +28,27 @@ export async function POST(request: Request) {
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .insert({
-        name: projectData.name.trim(),
-        founder_id: session.user.id
+        title: projectData.title.trim(),
+        description: projectData.description?.trim(),
+        founder_id: session.user.id,
+        category: projectData.category || 'Other',
+        visibility: 'private',
+        status: 'active'
       })
-      .select()
+      .select(`
+        id,
+        title,
+        description,
+        category,
+        visibility,
+        status,
+        created_at,
+        founder:projects_founder_id_fkey (
+          id,
+          email,
+          full_name
+        )
+      `)
       .single();
 
     if (projectError) {
@@ -60,7 +77,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ data: project });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating project:', error);
     return NextResponse.json(
       { error: { message: error instanceof Error ? error.message : 'Failed to create project' } },
