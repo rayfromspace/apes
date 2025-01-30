@@ -22,6 +22,12 @@ export interface Post {
   updated_at: string;
   isLiked?: boolean;
   isBookmarked?: boolean;
+  project?: {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+  };
 }
 
 export interface Comment {
@@ -48,7 +54,7 @@ interface SocialStore {
   error: string | null;
   selectedTopic: string | null;
   fetchPosts: (topic?: string) => Promise<void>;
-  createPost: (content: string, image?: File, topics?: string[]) => Promise<void>;
+  createPost: (content: string, image?: File, topic?: { id: string, name: string }) => Promise<void>;
   likePost: (postId: string) => Promise<void>;
   unlikePost: (postId: string) => Promise<void>;
   bookmarkPost: (postId: string) => Promise<void>;
@@ -79,19 +85,24 @@ export const useSocialStore = create<SocialStore>((set, get) => ({
         .from('posts')
         .select(`
           *,
-          author:author_id(
+          author:profiles(
             id,
             email,
-            raw_user_meta_data->name,
-            raw_user_meta_data->avatar_url,
-            raw_user_meta_data->role
+            full_name,
+            avatar_url
+          ),
+          project:projects(
+            id,
+            title,
+            description,
+            status
           )
         `)
         .eq('visibility', 'public')
         .order('created_at', { ascending: false });
 
       if (topic) {
-        query = query.contains('topics', [topic]);
+        query = query.eq('topic_id', topic);
       }
 
       const { data: posts, error } = await query;
@@ -126,25 +137,16 @@ export const useSocialStore = create<SocialStore>((set, get) => ({
     }
   },
 
-  createPost: async (content: string, image?: File, topics: string[] = []) => {
+  createPost: async (content: string, image?: File, topic?: { id: string, name: string }) => {
     try {
-      let image_url = null;
+      let image_url;
       if (image) {
-        const fileExt = image.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `post-images/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('posts')
-          .upload(filePath, image);
-
+        const { data: imageData, error: uploadError } = await supabase.storage
+          .from('post-images')
+          .upload(`${Date.now()}-${image.name}`, image);
+        
         if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('posts')
-          .getPublicUrl(filePath);
-
-        image_url = publicUrl;
+        image_url = imageData.path;
       }
 
       const user = (await supabase.auth.getUser()).data.user;
@@ -156,7 +158,8 @@ export const useSocialStore = create<SocialStore>((set, get) => ({
           author_id: user.id,
           content,
           image_url,
-          topics,
+          topic_id: topic?.id,
+          topic_name: topic?.name,
           visibility: 'public'
         });
 
